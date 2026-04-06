@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knitting Pattern Designer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Knitting Pattern Designer</h1>
+        <div class="header-actions">
+            <input type="text" id="pattern-name" placeholder="Pattern name..." title="Name your pattern" class="pattern-name-input">
+            <button id="btn-save" title="Save to file (Ctrl+S)">Save</button>
+            <button id="btn-load" title="Load from file">Load</button>
+            <button id="btn-clear" title="Clear grid">Clear</button>
+            <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
+            <button id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
+            <button id="btn-preview" class="btn-primary" title="Preview repeating pattern">Preview</button>
+            <button id="btn-instructions" title="Export knitting instructions">Instructions</button>
+            <button id="btn-print" title="Print pattern">Print</button>
+        </div>
+    </header>
+
+    <main>
+        <section class="toolbar">
+            <div class="tool-group">
+                <label>Grid Size:</label>
+                <input type="number" id="grid-rows" min="2" max="80" value="20" title="Rows">
+                <span>x</span>
+                <input type="number" id="grid-cols" min="2" max="80" value="20" title="Columns">
+                <button id="btn-resize">Resize</button>
+            </div>
+            <div class="tool-group color-palette" id="color-palette">
+                <label>Colours:</label>
+                <!-- Colors injected by JS -->
+            </div>
+            <div class="tool-group">
+                <label>Tool:</label>
+                <button id="tool-paint" class="tool-btn active" title="Paint (left-click)">Paint</button>
+                <button id="tool-erase" class="tool-btn" title="Erase">Erase</button>
+                <button id="tool-fill" class="tool-btn" title="Fill region">Fill</button>
+                <button id="tool-select" class="tool-btn" title="Select region">Select</button>
+            </div>
+            <div class="tool-group selection-actions" id="selection-actions" style="display:none;">
+                <button id="btn-copy" title="Copy (Ctrl+C)">Copy</button>
+                <button id="btn-cut" title="Cut (Ctrl+X)">Cut</button>
+                <button id="btn-paste" title="Paste (Ctrl+V)">Paste</button>
+                <button id="btn-deselect" title="Deselect (Esc)">Deselect</button>
+            </div>
+        </section>
+
+        <section class="editor-area">
+            <div class="grid-wrapper">
+                <div class="row-numbers" id="row-numbers"></div>
+                <div>
+                    <div class="col-numbers" id="col-numbers"></div>
+                    <div class="grid-container" id="grid-container"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Preview Modal -->
+    <div class="modal-overlay" id="preview-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Pattern Preview</h2>
+                <button class="modal-close" id="preview-close">&times;</button>
+            </div>
+            <div class="modal-controls">
+                <div class="tool-group">
+                    <label>Repeat:</label>
+                    <select id="preview-repeat">
+                        <option value="both">Both directions</option>
+                        <option value="horizontal">Horizontal only</option>
+                        <option value="vertical">Vertical only</option>
+                    </select>
+                </div>
+                <div class="tool-group">
+                    <label>Tiles:</label>
+                    <input type="number" id="preview-tiles" min="2" max="20" value="5">
+                </div>
+                <button id="btn-refresh-preview">Refresh</button>
+            </div>
+            <div class="preview-canvas-wrapper">
+                <canvas id="preview-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div class="modal-overlay" id="instructions-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Knitting Instructions</h2>
+                <button class="modal-close" id="instructions-close">&times;</button>
+            </div>
+            <div class="modal-controls">
+                <div class="tool-group">
+                    <label>Mode:</label>
+                    <select id="instructions-mode">
+                        <option value="flat">Flat knitting</option>
+                        <option value="round">In the round</option>
+                    </select>
+                </div>
+                <button id="btn-copy-instructions">Copy to Clipboard</button>
+                <button id="btn-download-instructions">Download .txt</button>
+            </div>
+            <div class="instructions-content">
+                <pre id="instructions-text"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Print View (hidden, shown only when printing) -->
+    <div class="print-view" id="print-view">
+        <h1 class="print-title">Knitting Pattern</h1>
+        <p class="print-info" id="print-info"></p>
+        <div class="print-grid-wrapper" id="print-grid-wrapper"></div>
+        <div class="print-legend" id="print-legend"></div>
+        <div class="print-instructions" id="print-instructions"></div>
+    </div>
+
+    <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
+
+    <script src="js/app.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/print.js"></script>
+    <script src="js/instructions.js"></script>
+</body>
+</html>

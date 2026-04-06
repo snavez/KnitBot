@@ -1,0 +1,554 @@
+/* === Reset & Base === */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface-hover: #1a2744;
+    --border: #2a3a5c;
+    --text: #e0e0e0;
+    --text-muted: #8899aa;
+    --accent: #4fc3f7;
+    --accent-hover: #29b6f6;
+    --danger: #ef5350;
+    --cell-size: 22px;
+    --cell-gap: 1px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* === Header === */
+header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+header h1 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.header-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.pattern-name-input {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    width: 160px;
+}
+
+.pattern-name-input::placeholder {
+    color: var(--text-muted);
+}
+
+.pattern-name-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* === Buttons === */
+button {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent);
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+button.btn-primary {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent);
+    font-weight: 600;
+}
+
+button.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* === Toolbar === */
+.toolbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.tool-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tool-group label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+input[type="number"], select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 8px;
+    border-radius: 4px;
+    width: 60px;
+    font-size: 0.85rem;
+}
+
+select {
+    width: auto;
+}
+
+/* === Tool Buttons === */
+.tool-btn {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+}
+
+.tool-btn.active {
+    background: var(--accent);
+    color: #111;
+    border-color: var(--accent);
+}
+
+/* === Color Palette === */
+.color-palette {
+    flex-wrap: wrap;
+}
+
+.color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    position: relative;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+}
+
+.color-swatch.active {
+    border-color: #fff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+.color-swatch-custom {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 2px dashed var(--border);
+    cursor: pointer;
+    background: transparent;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    padding: 0;
+}
+
+.color-swatch-custom:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+#custom-color-input {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* === Editor Area === */
+.editor-area {
+    flex: 1;
+    padding: 20px;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.grid-wrapper {
+    display: flex;
+    gap: 0;
+    user-select: none;
+}
+
+/* === Row/Column Numbers === */
+.row-numbers {
+    display: flex;
+    flex-direction: column;
+    padding-top: calc(18px + var(--cell-gap));
+    gap: var(--cell-gap);
+}
+
+.row-number {
+    height: var(--cell-size);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    min-width: 24px;
+}
+
+.col-numbers {
+    display: flex;
+    gap: var(--cell-gap);
+    padding-left: 0;
+}
+
+.col-number {
+    width: var(--cell-size);
+    text-align: center;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    height: 18px;
+    line-height: 18px;
+}
+
+/* === Grid === */
+.grid-container {
+    display: grid;
+    gap: var(--cell-gap);
+    background: var(--border);
+    border: 1px solid var(--border);
+    line-height: 0;
+}
+
+.grid-cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    background: var(--bg);
+    cursor: crosshair;
+    transition: background 0.05s;
+}
+
+.grid-cell:hover {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    z-index: 1;
+}
+
+.grid-cell.painted {
+    /* color set via inline style */
+}
+
+.grid-cell.selected {
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+    z-index: 2;
+}
+
+.grid-cell.paste-ghost {
+    opacity: 0.5;
+    outline: 1px dashed #fff;
+    outline-offset: -1px;
+    z-index: 3;
+}
+
+/* === Selection Actions === */
+.selection-actions button {
+    font-size: 0.8rem;
+    padding: 5px 10px;
+}
+
+/* === Padding Inputs === */
+.padding-input {
+    width: 45px !important;
+}
+
+.padding-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* === Modal === */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-overlay.open {
+    display: flex;
+}
+
+.modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 90vw;
+    max-width: 900px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    font-size: 1.1rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.modal-close:hover {
+    color: var(--text);
+}
+
+.modal-controls {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.preview-canvas-wrapper {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 300px;
+}
+
+#preview-canvas {
+    border: 1px solid var(--border);
+    image-rendering: pixelated;
+}
+
+/* === Instructions Modal === */
+.instructions-content {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+    min-height: 300px;
+}
+
+.instructions-content pre {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.6;
+    background: var(--bg);
+    padding: 16px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+
+/* === Print View === */
+.print-view {
+    display: none;
+}
+
+/* === Print Styles === */
+@media print {
+    body > *:not(.print-view) {
+        display: none !important;
+    }
+
+    .print-view {
+        display: block !important;
+        color: #000;
+        background: #fff;
+        padding: 10mm;
+    }
+
+    .print-title {
+        font-size: 18pt;
+        text-align: center;
+        margin-bottom: 4mm;
+        color: #000;
+    }
+
+    .print-info {
+        text-align: center;
+        font-size: 10pt;
+        color: #555;
+        margin-bottom: 6mm;
+    }
+
+    .print-grid-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 8mm;
+    }
+
+    .print-grid {
+        border-collapse: collapse;
+    }
+
+    .print-grid th {
+        font-size: 7pt;
+        font-weight: normal;
+        color: #888;
+        padding: 1px 3px;
+        text-align: center;
+    }
+
+    .print-grid td {
+        width: 7mm;
+        height: 7mm;
+        border: 0.5px solid #ccc;
+        text-align: center;
+        font-size: 8pt;
+        font-weight: bold;
+        vertical-align: middle;
+    }
+
+    .print-grid td.painted-cell {
+        border-color: #999;
+    }
+
+    .print-grid .row-header {
+        font-size: 7pt;
+        font-weight: normal;
+        color: #888;
+        border: none;
+        padding-right: 3px;
+        text-align: right;
+        width: auto;
+    }
+
+    .print-legend {
+        margin-top: 6mm;
+    }
+
+    .print-legend h3 {
+        font-size: 11pt;
+        margin-bottom: 3mm;
+        color: #000;
+    }
+
+    .print-legend-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4mm;
+    }
+
+    .print-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 2mm;
+        font-size: 9pt;
+    }
+
+    .print-legend-swatch {
+        width: 6mm;
+        height: 6mm;
+        border: 0.5px solid #999;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 8pt;
+        font-weight: bold;
+    }
+
+    .print-instructions {
+        margin-top: 8mm;
+        page-break-before: auto;
+    }
+
+    .print-instructions pre {
+        font-family: 'Consolas', monospace;
+        font-size: 8pt;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        color: #000;
+    }
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    :root {
+        --cell-size: 18px;
+    }
+}
