@@ -397,6 +397,72 @@ select {
     image-rendering: pixelated;
 }
 
+/* === Image Import Modal === */
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 16px;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79, 195, 247, 0.05);
+}
+
+.drop-zone p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.drop-zone .drop-zone-sub {
+    font-size: 0.8rem;
+    margin-top: 6px;
+}
+
+.checkbox-input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.image-previews {
+    margin-top: 12px;
+}
+
+.image-preview-pair {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.image-preview-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.image-preview-box canvas {
+    border: 1px solid var(--border);
+    image-rendering: pixelated;
+    max-width: 200px;
+    max-height: 200px;
+}
+
+.preview-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 /* === Random Pattern Modal === */
 .modal-body {
     padding: 20px;

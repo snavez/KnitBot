@@ -17,6 +17,7 @@
             <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
             <button id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
             <button id="btn-random" title="Generate a random pattern">Random</button>
+            <button id="btn-image" title="Import image as pattern">Image</button>
             <button id="btn-preview" class="btn-primary" title="Preview repeating pattern">Preview</button>
             <button id="btn-instructions" title="Export knitting instructions">Instructions</button>
             <button id="btn-print" title="Print pattern">Print</button>
@@ -114,6 +115,64 @@
         </div>
     </div>
 
+    <!-- Image Import Modal -->
+    <div class="modal-overlay" id="image-modal">
+        <div class="modal modal-narrow">
+            <div class="modal-header">
+                <h2>Import Image</h2>
+                <button class="modal-close" id="image-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="drop-zone" id="drop-zone">
+                    <p>Drag &amp; drop an image here</p>
+                    <p class="drop-zone-sub">or click to browse</p>
+                    <input type="file" id="image-file-input" accept="image/*" style="display:none;">
+                </div>
+                <div id="image-controls" style="display:none;">
+                    <div class="form-row">
+                        <label for="image-rows">Rows:</label>
+                        <input type="number" id="image-rows" min="4" max="80" value="20">
+                    </div>
+                    <div class="form-row">
+                        <label for="image-cols">Columns:</label>
+                        <input type="number" id="image-cols" min="4" max="80" value="20">
+                    </div>
+                    <div class="form-row">
+                        <label>Lock ratio:</label>
+                        <input type="checkbox" id="image-lock-ratio" checked class="checkbox-input">
+                    </div>
+                    <div class="form-row">
+                        <label for="image-max-colors">Max colours:</label>
+                        <input type="range" id="image-max-colors" min="2" max="12" value="6" class="density-slider">
+                        <span id="image-max-colors-value">6</span>
+                    </div>
+                    <div class="form-row">
+                        <label>Palette:</label>
+                        <div class="random-color-picks" id="image-color-picks">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="form-row form-actions">
+                        <button id="btn-image-reprocess" class="btn-primary">Reprocess</button>
+                        <button id="btn-image-apply">Apply to Grid</button>
+                    </div>
+                    <div class="image-previews">
+                        <div class="image-preview-pair">
+                            <div class="image-preview-box">
+                                <span class="preview-label">Original</span>
+                                <canvas id="image-original-canvas"></canvas>
+                            </div>
+                            <div class="image-preview-box">
+                                <span class="preview-label">Pattern</span>
+                                <canvas id="image-pattern-canvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Random Pattern Modal -->
     <div class="modal-overlay" id="random-modal">
         <div class="modal modal-narrow">
@@ -177,5 +236,6 @@
     <script src="js/print.js"></script>
     <script src="js/instructions.js"></script>
     <script src="js/random.js"></script>
+    <script src="js/image.js"></script>
 </body>
 </html>
