@@ -41,7 +41,7 @@ function initRandomColorPicks() {
 }
 
 function getPickedColors() {
-    const swatches = document.querySelectorAll('.random-swatch.picked');
+    const swatches = document.querySelectorAll('#random-color-picks .random-swatch.picked');
     const colors = [];
     swatches.forEach(s => colors.push(s.dataset.color));
     return colors.length > 0 ? colors : [COLORS[0]]; // fallback to at least one
