@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Controls
     document.getElementById('btn-image-reprocess').addEventListener('click', processImage);
     document.getElementById('btn-image-apply').addEventListener('click', applyImagePattern);
+    document.getElementById('btn-image-change').addEventListener('click', resetToDropZone);
 
     // Max colours slider label
     const slider = document.getElementById('image-max-colors');
@@ -78,11 +79,15 @@ function openImageModal() {
     document.getElementById('image-modal').classList.add('open');
     document.getElementById('image-rows').value = state.rows;
     document.getElementById('image-cols').value = state.cols;
-    // Reset if no image loaded
-    if (!imageData) {
-        document.getElementById('image-controls').style.display = 'none';
-        document.getElementById('drop-zone').style.display = 'block';
-    }
+    // Always start at the drop zone so user can pick a new image
+    resetToDropZone();
+}
+
+function resetToDropZone() {
+    imageData = null;
+    imagePattern = null;
+    document.getElementById('image-controls').style.display = 'none';
+    document.getElementById('drop-zone').style.display = 'block';
 }
 
 function closeImageModal() {
