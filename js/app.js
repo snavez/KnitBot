@@ -826,10 +826,12 @@ function renderPasteGhost() {
     }
 }
 
+let pasteIdSeq = 0;
 function commitPaste(row, col) {
     if (!state.clipboard) return;
     const clipRows = state.clipboard.length;
     const clipCols = state.clipboard[0].length;
+    const pasteIdMap = {}; // maps old crossing IDs to new unique ones
     for (let dr = 0; dr < clipRows; dr++) {
         for (let dc = 0; dc < clipCols; dc++) {
             const r = row + dr, c = col + dc;
@@ -844,7 +846,14 @@ function commitPaste(row, col) {
                 const stitch = state.clipboardStitches[dr][dc];
                 if (stitch !== null && stitch !== undefined) {
                     if (state.stitchGrid[r]) {
-                        state.stitchGrid[r][c] = typeof stitch === 'string' ? stitch : { ...stitch };
+                        if (typeof stitch === 'string') {
+                            state.stitchGrid[r][c] = stitch;
+                        } else {
+                            // Clone with a new unique ID so it doesn't conflict with the original
+                            const newId = pasteIdMap[stitch.id] || ('p' + (++pasteIdSeq));
+                            pasteIdMap[stitch.id] = newId;
+                            state.stitchGrid[r][c] = { ...stitch, id: newId };
+                        }
                     }
                 }
             }
