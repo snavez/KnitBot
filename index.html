@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Knitting Pattern Designer</title>
-    <link rel="stylesheet" href="css/style.css?v=3">
+    <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
     <header>
@@ -19,13 +19,19 @@
             <button id="btn-random" title="Generate a random pattern">Random</button>
             <button id="btn-image" title="Import image as pattern">Image</button>
             <button id="btn-preview" class="btn-primary" title="Preview repeating pattern">Preview</button>
-            <button id="btn-instructions" title="Export knitting instructions">Instructions</button>
-            <button id="btn-print" title="Print pattern">Print</button>
+            <button id="btn-instructions" title="Export knitting instructions &amp; print">Instructions</button>
         </div>
     </header>
 
     <main>
         <section class="toolbar">
+            <div class="tool-group">
+                <label>Mode:</label>
+                <select id="knitting-mode">
+                    <option value="flat">Flat</option>
+                    <option value="round">In the round</option>
+                </select>
+            </div>
             <div class="tool-group">
                 <label>Grid Size:</label>
                 <input type="number" id="grid-rows" min="2" max="80" value="20" title="Rows">
@@ -54,12 +60,39 @@
 
         <section class="editor-area">
             <div class="grid-wrapper">
-                <div class="row-numbers" id="row-numbers"></div>
-                <div>
+                <div class="row-numbers row-numbers-left" id="row-numbers-left"></div>
+                <div class="grid-col-wrapper">
                     <div class="col-numbers" id="col-numbers"></div>
-                    <div class="grid-container" id="grid-container"></div>
+                    <div class="grid-canvas-wrapper">
+                        <div class="grid-container" id="grid-container"></div>
+                        <canvas id="stitch-overlay" class="stitch-overlay"></canvas>
+                    </div>
                 </div>
+                <div class="row-numbers row-numbers-right" id="row-numbers-right"></div>
             </div>
+            <aside class="stitch-palette" id="stitch-palette">
+                <h3>Stitches</h3>
+                <div class="stitch-tile" data-stitch="knit" title="Knit stitch">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>Knit</span>
+                </div>
+                <div class="stitch-tile" data-stitch="purl" title="Purl stitch">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>Purl</span>
+                </div>
+                <div class="stitch-tile" data-stitch="left-cross" title="Left Cross — click &amp; drag across cells. Reads K/P from row below to determine crossing.">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>Left X</span>
+                </div>
+                <div class="stitch-tile" data-stitch="right-cross" title="Right Cross — click &amp; drag across cells. Reads K/P from row below to determine crossing.">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>Right X</span>
+                </div>
+                <div class="stitch-tile stitch-tile-erase" data-stitch="stitch-erase" title="Erase stitch type">
+                    <span class="stitch-erase-icon">&#x2715;</span>
+                    <span>Erase</span>
+                </div>
+            </aside>
         </section>
     </main>
 
@@ -99,15 +132,9 @@
                 <button class="modal-close" id="instructions-close">&times;</button>
             </div>
             <div class="modal-controls">
-                <div class="tool-group">
-                    <label>Mode:</label>
-                    <select id="instructions-mode">
-                        <option value="flat">Flat knitting</option>
-                        <option value="round">In the round</option>
-                    </select>
-                </div>
                 <button id="btn-copy-instructions">Copy to Clipboard</button>
                 <button id="btn-download-instructions">Download .txt</button>
+                <button id="btn-print-instructions" class="btn-primary">Print / PDF</button>
             </div>
             <div class="instructions-content">
                 <pre id="instructions-text"></pre>
@@ -232,11 +259,12 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/app.js?v=3"></script>
-    <script src="js/preview.js?v=3"></script>
-    <script src="js/print.js?v=3"></script>
-    <script src="js/instructions.js?v=3"></script>
-    <script src="js/random.js?v=3"></script>
-    <script src="js/image.js?v=3"></script>
+    <script src="js/app.js?v=5"></script>
+    <script src="js/preview.js?v=5"></script>
+    <script src="js/print.js?v=5"></script>
+    <script src="js/instructions.js?v=5"></script>
+    <script src="js/random.js?v=5"></script>
+    <script src="js/image.js?v=5"></script>
+    <script src="js/cables.js?v=5"></script>
 </body>
 </html>

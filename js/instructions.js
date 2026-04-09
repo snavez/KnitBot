@@ -131,66 +131,294 @@ function formatInstructionsText(pattern, mode) {
     const patCols = pattern[0].length;
     const legend = buildColorLegend(pattern);
     const isFlat = mode === 'flat';
+    const hasColors = legend.colors.length > 0;
+
+    // Determine the stitchGrid region matching the pattern
+    const stitchRegion = getStitchRegion(patRows, patCols);
 
     let text = 'KNITTING PATTERN INSTRUCTIONS\n';
     text += '==============================\n';
     text += `Size: ${patCols} stitches wide x ${patRows} rows tall\n`;
     text += `Mode: ${isFlat ? 'Flat knitting (back and forth)' : 'In the round'}\n\n`;
 
-    // Colour legend
-    text += 'Colour Legend:\n';
-    text += '  BG = Background (unspecified)\n';
-    legend.colors.forEach(c => {
-        if (legend.colors.length === 1) {
-            text += `  ${c.label}\n`;
-        } else {
-            text += `  ${c.label} = ${c.name}\n`;
-        }
-    });
+    // Colour legend — only if colours are present
+    if (hasColors) {
+        text += 'Colour Legend:\n';
+        text += '  BG = Background (unspecified)\n';
+        legend.colors.forEach(c => {
+            if (legend.colors.length === 1) {
+                text += `  ${c.label}\n`;
+            } else {
+                text += `  ${c.label} = ${c.name}\n`;
+            }
+        });
+    }
+
+    // Collect all unique crossings used in the pattern
+    const crossings = collectUniqueCrossings(stitchRegion);
+    if (crossings.length > 0) {
+        text += '\nCrossing Definitions:\n';
+        crossings.forEach(cx => {
+            text += `  ${cx.notation}: ${cx.description}\n`;
+        });
+    }
     text += '\n';
 
     // Instructions
     text += 'Instructions:\n';
 
-    // Iterate from bottom of pattern (Row 1 in knitting = last array index)
     for (let knittingRow = 1; knittingRow <= patRows; knittingRow++) {
-        const arrayRow = patRows - knittingRow; // bottom of pattern = row 1
+        const arrayRow = patRows - knittingRow;
 
         if (isFlat) {
-            const isRS = (knittingRow % 2 === 1); // odd rows = RS
-            const stitchType = isRS ? 'K' : 'P';
+            const isRS = (knittingRow % 2 === 1);
+            const defaultSt = isRS ? 'K' : 'P';
             const side = isRS ? 'RS' : 'WS';
 
-            // RS rows: read chart right-to-left (reverse the array row)
-            // WS rows: read chart left-to-right (as stored)
-            let cells;
-            if (isRS) {
-                cells = [...pattern[arrayRow]].reverse();
-            } else {
-                cells = [...pattern[arrayRow]];
-            }
-
-            const encoded = runLengthEncode(cells, stitchType, legend.labelMap);
-            text += `Row ${knittingRow} (${side}): ${encoded}\n`;
+            const rowInstructions = encodeRowWithStitches(
+                pattern[arrayRow],
+                stitchRegion ? stitchRegion[arrayRow] : null,
+                defaultSt,
+                legend.labelMap,
+                isRS,
+                hasColors
+            );
+            text += `Row ${knittingRow} (${side}): ${rowInstructions}\n`;
         } else {
-            // In the round: all RS, all K, read right-to-left
-            const cells = [...pattern[arrayRow]].reverse();
-            const encoded = runLengthEncode(cells, 'K', legend.labelMap);
-            text += `Rnd ${knittingRow}: ${encoded}\n`;
+            const rowInstructions = encodeRowWithStitches(
+                pattern[arrayRow],
+                stitchRegion ? stitchRegion[arrayRow] : null,
+                'K',
+                legend.labelMap,
+                true,
+                hasColors
+            );
+            text += `Rnd ${knittingRow}: ${rowInstructions}\n`;
         }
     }
 
     return text;
 }
 
+// Get the stitch grid region matching the current pattern region
+function getStitchRegion(patRows, patCols) {
+    if (!state.stitchGrid || !state.stitchGrid.length) return null;
+
+    // Check if a selection is active
+    const sel = (typeof normalizeSelection === 'function') ? normalizeSelection() : null;
+    if (sel) {
+        const region = [];
+        for (let r = sel.minR; r <= sel.maxR; r++) {
+            const row = [];
+            for (let c = sel.minC; c <= sel.maxC; c++) {
+                row.push(state.stitchGrid[r] ? state.stitchGrid[r][c] : null);
+            }
+            region.push(row);
+        }
+        return region;
+    }
+
+    // Otherwise use trimmed bounds
+    const bounds = getTrimmedBounds();
+    if (!bounds) return null;
+    const region = [];
+    for (let r = bounds.minR; r <= bounds.maxR; r++) {
+        const row = [];
+        for (let c = bounds.minC; c <= bounds.maxC; c++) {
+            row.push(state.stitchGrid[r] ? state.stitchGrid[r][c] : null);
+        }
+        region.push(row);
+    }
+    return region;
+}
+
+// Encode a single row including stitch types and cables
+function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverseRead, hasColors) {
+    const len = colorRow.length;
+    if (!stitchRow) {
+        // No stitch data — fall back to simple colour encoding
+        const cells = reverseRead ? [...colorRow].reverse() : [...colorRow];
+        return hasColors ? runLengthEncode(cells, defaultSt, labelMap) : `${defaultSt}${len}`;
+    }
+
+    // Build an array of instruction tokens for each cell
+    const tokens = [];
+    const processed = new Set();
+
+    // Process in chart order (L-to-R in array), then reverse if needed
+    for (let c = 0; c < len; c++) {
+        const stitch = stitchRow[c];
+
+        if (stitch && typeof stitch === 'object' && !processed.has(stitch.id)) {
+            processed.add(stitch.id);
+            const color = colorRow[c];
+
+            const notation = buildCrossingNotation(stitch);
+
+            if (hasColors && color !== null) {
+                const colorLabel = color === null ? 'BG' : (labelMap[color] || color);
+                tokens.push({ text: notation + ' in ' + colorLabel, span: stitch.width });
+            } else {
+                tokens.push({ text: notation, span: stitch.width });
+            }
+            c += stitch.width - 1;
+        } else if (stitch && typeof stitch === 'object') {
+            // Already processed cable cell, skip
+            continue;
+        } else {
+            // Simple stitch: knit, purl, or default
+            const isPurl = (stitch === 'purl');
+            const isKnit = (stitch === 'knit') || (!stitch);
+            const st = isPurl ? 'P' : defaultSt;
+            const color = colorRow[c];
+            tokens.push({ st: st, color: color, span: 1 });
+        }
+    }
+
+    // Reverse if reading R-to-L
+    if (reverseRead) tokens.reverse();
+
+    // Now run-length encode the simple stitch tokens, keeping cable tokens as-is
+    const parts = [];
+    let i = 0;
+    while (i < tokens.length) {
+        const tok = tokens[i];
+        if (tok.text) {
+            // Cable/twist — emit as-is
+            parts.push(tok.text);
+            i++;
+        } else {
+            // Simple stitch — group consecutive same st+color
+            let count = tok.span;
+            let j = i + 1;
+            while (j < tokens.length && !tokens[j].text &&
+                   tokens[j].st === tok.st && tokens[j].color === tok.color) {
+                count += tokens[j].span;
+                j++;
+            }
+            if (hasColors) {
+                const colorLabel = tok.color === null ? 'BG' : (labelMap[tok.color] || tok.color);
+                parts.push(`${tok.st}${count} in ${colorLabel}`);
+            } else {
+                parts.push(`${tok.st}${count}`);
+            }
+            i = j;
+        }
+    }
+
+    return parts.join(', ');
+}
+
+// === Crossing Notation & Descriptions ===
+function buildCrossingNotation(stitch) {
+    const clusters = stitch.clusters || [];
+    const dirLabel = stitch.dir === 'left' ? 'LC' : 'RC';
+
+    if (clusters.length === 0 || clusters.length === 1) {
+        // Pure cable (all same type)
+        const half = Math.floor(stitch.width / 2);
+        return `${half}/${stitch.width - half} ${dirLabel}`;
+    }
+
+    if (clusters.length === 2) {
+        const left = clusters[0];
+        const right = clusters[1];
+        const leftLabel = left.st === 'knit' ? `K${left.count}` : `P${left.count}`;
+        const rightLabel = right.st === 'knit' ? `K${right.count}` : `P${right.count}`;
+        return `${leftLabel}/${rightLabel} ${dirLabel}`;
+    }
+
+    if (clusters.length === 3) {
+        const left = clusters[0];
+        const center = clusters[1];
+        const right = clusters[2];
+        const leftLabel = left.st === 'knit' ? `K${left.count}` : `P${left.count}`;
+        const centerLabel = center.st === 'knit' ? `K${center.count}` : `P${center.count}`;
+        const rightLabel = right.st === 'knit' ? `K${right.count}` : `P${right.count}`;
+        return `${leftLabel}/${centerLabel}/${rightLabel} ${dirLabel}`;
+    }
+
+    return `${stitch.width}-st ${dirLabel}`;
+}
+
+function buildCrossingDescription(stitch) {
+    const clusters = stitch.clusters || [];
+    const isLeft = stitch.dir === 'left';
+
+    // Left Cross: slip LEFT group to CN, hold at FRONT → right group leans left in front
+    // Right Cross: slip RIGHT group to CN, hold at BACK → left group leans right in front
+
+    if (clusters.length === 0 || clusters.length === 1) {
+        // Pure cable
+        const half = Math.floor(stitch.width / 2);
+        const rem = stitch.width - half;
+        if (isLeft) {
+            return `Sl ${half} sts to CN and hold at front, K${rem} from LN, K${half} from CN.`;
+        } else {
+            return `Sl ${rem} sts to CN and hold at back, K${half} from LN, K${rem} from CN.`;
+        }
+    }
+
+    if (clusters.length === 2) {
+        const left = clusters[0];
+        const right = clusters[1];
+        if (isLeft) {
+            // LC: slip left group to CN front, work right group from LN, then left from CN
+            const workFirst = right.st === 'knit' ? `K${right.count}` : `P${right.count}`;
+            const workCN = left.st === 'knit' ? `K${left.count}` : `P${left.count}`;
+            return `Sl ${left.count} sts to CN and hold at front, ${workFirst} from LN, ${workCN} from CN.`;
+        } else {
+            // RC: slip right group to CN back, work left group from LN, then right from CN
+            const workFirst = left.st === 'knit' ? `K${left.count}` : `P${left.count}`;
+            const workCN = right.st === 'knit' ? `K${right.count}` : `P${right.count}`;
+            return `Sl ${right.count} sts to CN and hold at back, ${workFirst} from LN, ${workCN} from CN.`;
+        }
+    }
+
+    if (clusters.length === 3) {
+        const left = clusters[0];
+        const center = clusters[1];
+        const right = clusters[2];
+        const centerWork = center.st === 'knit' ? `K${center.count}` : `P${center.count}`;
+        if (isLeft) {
+            return `Sl ${left.count + center.count} sts to CN and hold at front, ${right.st === 'knit' ? 'K' : 'P'}${right.count} from LN, sl last ${center.count} from CN back to LN and ${centerWork}, ${left.st === 'knit' ? 'K' : 'P'}${left.count} from CN.`;
+        } else {
+            return `Sl ${right.count} sts to CN and hold at back, ${left.st === 'knit' ? 'K' : 'P'}${left.count} from LN, ${centerWork} from LN, ${right.st === 'knit' ? 'K' : 'P'}${right.count} from CN.`;
+        }
+    }
+
+    return `Work ${stitch.width}-stitch ${isLeft ? 'left' : 'right'} cross.`;
+}
+
+function collectUniqueCrossings(stitchRegion) {
+    if (!stitchRegion) return [];
+    const seen = new Set();
+    const crossings = [];
+
+    for (const row of stitchRegion) {
+        if (!row) continue;
+        for (const s of row) {
+            if (!s || typeof s !== 'object' || s.type !== 'cross') continue;
+            const notation = buildCrossingNotation(s);
+            if (seen.has(notation)) continue;
+            seen.add(notation);
+            crossings.push({
+                notation: notation,
+                description: buildCrossingDescription(s),
+            });
+        }
+    }
+    return crossings;
+}
+
 // === Instructions Modal ===
 function openInstructionsModal() {
     const pattern = getPatternRegion();
     if (!pattern) {
-        showToast('Paint some cells first!');
+        showToast('Add some stitches or paint some cells first!');
         return;
     }
-    const mode = document.getElementById('instructions-mode').value;
+    const mode = state.knittingMode; // use global mode from toolbar
     const text = formatInstructionsText(pattern, mode);
     document.getElementById('instructions-text').textContent = text;
     document.getElementById('instructions-modal').classList.add('open');
@@ -226,12 +454,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('instructions-modal').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closeInstructionsModal();
     });
-    document.getElementById('instructions-mode').addEventListener('change', () => {
-        // Re-generate when mode changes if modal is open
+    document.getElementById('btn-copy-instructions').addEventListener('click', copyInstructionsToClipboard);
+    document.getElementById('btn-download-instructions').addEventListener('click', downloadInstructionsAsText);
+    document.getElementById('btn-print-instructions').addEventListener('click', () => {
+        preparePrint();
+    });
+
+    // Re-generate instructions when global knitting mode changes
+    document.getElementById('knitting-mode').addEventListener('change', () => {
         if (document.getElementById('instructions-modal').classList.contains('open')) {
             openInstructionsModal();
         }
     });
-    document.getElementById('btn-copy-instructions').addEventListener('click', copyInstructionsToClipboard);
-    document.getElementById('btn-download-instructions').addEventListener('click', downloadInstructionsAsText);
 });

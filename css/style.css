@@ -234,17 +234,45 @@ select {
     flex-direction: column;
     padding-top: calc(18px + var(--cell-gap));
     gap: var(--cell-gap);
+    flex-shrink: 0;
 }
 
 .row-number {
     height: var(--cell-size);
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    padding-right: 6px;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     color: var(--text-muted);
-    min-width: 24px;
+    min-width: 46px;
+    white-space: nowrap;
+}
+
+.row-numbers-left .row-number {
+    justify-content: flex-end;
+    padding-right: 4px;
+}
+
+.row-numbers-right .row-number {
+    justify-content: flex-start;
+    padding-left: 4px;
+}
+
+.row-number .row-arrow {
+    font-size: 0.85rem;
+    line-height: 1;
+    margin-left: 1px;
+}
+
+.row-number.row-hidden {
+    visibility: hidden;
+}
+
+.row-number.row-rs {
+    color: var(--accent);
+}
+
+.row-number.row-ws {
+    color: #8899aa;
 }
 
 .col-numbers {
@@ -263,6 +291,23 @@ select {
 }
 
 /* === Grid === */
+.grid-col-wrapper {
+    position: relative;
+}
+
+.grid-canvas-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.stitch-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
 .grid-container {
     display: grid;
     gap: var(--cell-gap);
@@ -289,10 +334,15 @@ select {
     /* color set via inline style */
 }
 
-.grid-cell.selected {
-    outline: 2px dashed var(--accent);
-    outline-offset: -2px;
-    z-index: 2;
+/* .selected class kept for JS logic only — no visual style on individual cells */
+
+#selection-box {
+    position: absolute;
+    border: 2px dashed #4fc3f7;
+    pointer-events: none;
+    z-index: 6;
+    border-radius: 2px;
+    box-sizing: border-box;
 }
 
 .grid-cell.paste-ghost {
@@ -395,6 +445,92 @@ select {
 #preview-canvas {
     border: 1px solid var(--border);
     image-rendering: pixelated;
+}
+
+/* === Stitch Palette Sidebar === */
+.editor-area {
+    flex-direction: row;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.stitch-palette {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 80px;
+    position: sticky;
+    top: 20px;
+}
+
+.stitch-palette h3 {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.stitch-tile-row {
+    display: flex;
+    gap: 4px;
+}
+
+.stitch-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.stitch-tile:hover {
+    background: var(--surface-hover);
+    border-color: var(--border);
+}
+
+.stitch-tile.active {
+    border-color: var(--accent);
+    background: rgba(79, 195, 247, 0.1);
+}
+
+.stitch-tile span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.stitch-tile.active span {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.stitch-tile-canvas {
+    border-radius: 3px;
+}
+
+.stitch-erase-icon {
+    font-size: 1.2rem;
+    color: var(--danger);
+    line-height: 40px;
+}
+
+.grid-cell.stitch-purl {
+    background: #243352 !important;
+}
+
+.grid-cell.cable-ghost {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    z-index: 4;
 }
 
 /* === Image Import Modal === */
@@ -632,6 +768,23 @@ select {
         border-color: #999;
     }
 
+    .print-grid td.cable-cell {
+        font-size: 7pt;
+        font-weight: bold;
+        background: #e8f4f8 !important;
+        color: #000 !important;
+        border-color: #666;
+    }
+
+    .print-grid td.stitch-cell {
+        font-size: 10pt;
+    }
+
+    .print-grid td.stitch-purl-cell {
+        background: #f0f0f0 !important;
+        color: #555 !important;
+    }
+
     .print-grid .row-header {
         font-size: 7pt;
         font-weight: normal;
@@ -640,6 +793,7 @@ select {
         padding-right: 3px;
         text-align: right;
         width: auto;
+        white-space: nowrap;
     }
 
     .print-legend {

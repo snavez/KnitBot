@@ -3,19 +3,25 @@ const state = {
     rows: 20,
     cols: 20,
     grid: [],           // 2D array: null = empty, string = color
+    stitchGrid: [],     // 2D array: null = knit, 'purl', or {type,dir,width,pos,id}
     activeColor: null,
-    activeTool: 'paint', // 'paint', 'erase', 'fill', 'select'
+    activeTool: 'paint', // 'paint', 'erase', 'fill', 'select', 'stitch'
+    activeStitch: null,  // null, 'knit', 'purl', 'left-cross', 'right-cross', 'stitch-erase'
     isPainting: false,
     history: [],
     historyIndex: -1,
     maxHistory: 50,
     patternName: '',
+    knittingMode: 'flat', // 'flat' or 'round'
     // Selection / copy-paste
-    selection: null,      // { startRow, startCol, endRow, endCol } or null
-    clipboard: null,      // 2D array of cell colors
+    selection: null,
+    clipboard: null,
     isSelecting: false,
     isPasting: false,
-    pasteGhostPos: null,  // { row, col }
+    pasteGhostPos: null,
+    // Cable placement
+    cableDragStart: null, // { row, col } when dragging a cable
+    cableDragEnd: null,
 };
 
 const COLORS = [
@@ -93,11 +99,15 @@ function initGrid(rows, cols) {
 
     // Preserve existing data where possible
     const oldGrid = state.grid;
+    const oldStitchGrid = state.stitchGrid;
     state.grid = [];
+    state.stitchGrid = [];
     for (let r = 0; r < rows; r++) {
         state.grid[r] = [];
+        state.stitchGrid[r] = [];
         for (let c = 0; c < cols; c++) {
             state.grid[r][c] = (oldGrid[r] && oldGrid[r][c]) || null;
+            state.stitchGrid[r][c] = (oldStitchGrid[r] && oldStitchGrid[r][c]) || null;
         }
     }
 
@@ -125,19 +135,56 @@ function renderGrid() {
     }
 
     renderNumbers();
+    // Render stitch overlay if cables.js is loaded
+    if (typeof renderStitchOverlay === 'function') {
+        renderStitchOverlay();
+    }
 }
 
 function renderNumbers() {
-    const rowNums = document.getElementById('row-numbers');
+    const leftNums = document.getElementById('row-numbers-left');
+    const rightNums = document.getElementById('row-numbers-right');
     const colNums = document.getElementById('col-numbers');
-    rowNums.innerHTML = '';
+    leftNums.innerHTML = '';
+    rightNums.innerHTML = '';
     colNums.innerHTML = '';
 
+    function makeArrow(arrow) {
+        return `<span class="row-arrow">${arrow}</span>`;
+    }
+
     for (let r = 0; r < state.rows; r++) {
-        const el = document.createElement('div');
-        el.className = 'row-number';
-        el.textContent = r + 1;
-        rowNums.appendChild(el);
+        const knittingRow = state.rows - r;
+        const isRS = (knittingRow % 2 === 1);
+
+        const leftEl = document.createElement('div');
+        leftEl.className = 'row-number';
+        const rightEl = document.createElement('div');
+        rightEl.className = 'row-number';
+
+        if (state.knittingMode === 'flat') {
+            // Flat: WS (even) on left with ▶, RS (odd) on right with ◀
+            if (isRS) {
+                leftEl.classList.add('row-hidden');
+                rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
+                rightEl.classList.add('row-rs');
+                rightEl.title = `Row ${knittingRow} (RS) — work right to left`;
+            } else {
+                leftEl.innerHTML = knittingRow + makeArrow('\u25B6');
+                leftEl.classList.add('row-ws');
+                leftEl.title = `Row ${knittingRow} (WS) — work left to right`;
+                rightEl.classList.add('row-hidden');
+            }
+        } else {
+            // In the round: all on right with ◀
+            leftEl.classList.add('row-hidden');
+            rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
+            rightEl.classList.add('row-rs');
+            rightEl.title = `Rnd ${knittingRow} — work right to left`;
+        }
+
+        leftNums.appendChild(leftEl);
+        rightNums.appendChild(rightEl);
     }
 
     for (let c = 0; c < state.cols; c++) {
@@ -224,6 +271,9 @@ function bindEvents() {
             return;
         }
 
+        // Stitch tool handled in cables.js (capture phase)
+        if (state.activeTool === 'stitch') return;
+
         state.isPainting = true;
         paintCell(r, c);
     });
@@ -245,6 +295,9 @@ function bindEvents() {
             }
             return;
         }
+
+        // Stitch tool handled in cables.js (capture phase)
+        if (state.activeTool === 'stitch') return;
 
         if (!state.isPainting || state.activeTool === 'fill') return;
         paintCell(r, c);
@@ -300,6 +353,12 @@ function bindEvents() {
         }
     });
 
+    // Knitting mode toggle
+    document.getElementById('knitting-mode').addEventListener('change', (e) => {
+        state.knittingMode = e.target.value;
+        renderNumbers();
+    });
+
     // Toolbar buttons
     document.getElementById('btn-resize').addEventListener('click', () => {
         const rows = clamp(+document.getElementById('grid-rows').value, 2, 80);
@@ -312,8 +371,10 @@ function bindEvents() {
 
     document.getElementById('btn-clear').addEventListener('click', () => {
         for (let r = 0; r < state.rows; r++)
-            for (let c = 0; c < state.cols; c++)
+            for (let c = 0; c < state.cols; c++) {
                 state.grid[r][c] = null;
+                if (state.stitchGrid[r]) state.stitchGrid[r][c] = null;
+            }
         renderGrid();
         pushHistory();
     });
@@ -321,7 +382,6 @@ function bindEvents() {
     document.getElementById('btn-undo').addEventListener('click', undo);
     document.getElementById('btn-redo').addEventListener('click', redo);
     document.getElementById('btn-preview').addEventListener('click', openPreview);
-    document.getElementById('btn-print').addEventListener('click', () => preparePrint());
     document.getElementById('btn-save').addEventListener('click', saveToFile);
     document.getElementById('btn-load').addEventListener('click', loadFromFile);
 
@@ -383,11 +443,18 @@ function updateToolButtons() {
 }
 
 // === History (Undo/Redo) ===
+function deepCopyStitchGrid(sg) {
+    return sg.map(row => row.map(cell =>
+        cell === null || typeof cell === 'string' ? cell : { ...cell }
+    ));
+}
+
 function pushHistory() {
     const snapshot = state.grid.map(row => [...row]);
+    const stitchSnapshot = deepCopyStitchGrid(state.stitchGrid);
     // Remove any future states after current index
     state.history = state.history.slice(0, state.historyIndex + 1);
-    state.history.push({ grid: snapshot, rows: state.rows, cols: state.cols });
+    state.history.push({ grid: snapshot, stitchGrid: stitchSnapshot, rows: state.rows, cols: state.cols });
     if (state.history.length > state.maxHistory) {
         state.history.shift();
     }
@@ -412,10 +479,20 @@ function restoreHistory() {
     state.rows = snap.rows;
     state.cols = snap.cols;
     state.grid = snap.grid.map(row => [...row]);
+    state.stitchGrid = snap.stitchGrid ? deepCopyStitchGrid(snap.stitchGrid) : initEmptyStitchGrid(snap.rows, snap.cols);
     document.getElementById('grid-rows').value = state.rows;
     document.getElementById('grid-cols').value = state.cols;
     renderGrid();
     updateUndoRedoButtons();
+}
+
+function initEmptyStitchGrid(rows, cols) {
+    const sg = [];
+    for (let r = 0; r < rows; r++) {
+        sg[r] = [];
+        for (let c = 0; c < cols; c++) sg[r][c] = null;
+    }
+    return sg;
 }
 
 function updateUndoRedoButtons() {
@@ -428,10 +505,13 @@ function restorePatternData(data) {
     state.rows = data.rows;
     state.cols = data.cols;
     state.grid = data.grid;
+    state.stitchGrid = data.stitchGrid || initEmptyStitchGrid(data.rows, data.cols);
     state.patternName = data.name || '';
+    state.knittingMode = data.knittingMode || 'flat';
     document.getElementById('grid-rows').value = state.rows;
     document.getElementById('grid-cols').value = state.cols;
     document.getElementById('pattern-name').value = state.patternName;
+    document.getElementById('knitting-mode').value = state.knittingMode;
     renderGrid();
     state.history = [];
     state.historyIndex = -1;
@@ -442,11 +522,13 @@ function saveToFile() {
     const name = document.getElementById('pattern-name').value.trim() || 'untitled';
     state.patternName = name;
     const data = {
-        version: 1,
+        version: 2,
         name: name,
         rows: state.rows,
         cols: state.cols,
         grid: state.grid,
+        stitchGrid: state.stitchGrid,
+        knittingMode: state.knittingMode,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -511,12 +593,14 @@ styleSheet.textContent = `
 `;
 document.head.appendChild(styleSheet);
 
-// === Auto-trim: find the bounding box of painted cells ===
+// === Auto-trim: find the bounding box of cells with content (colour OR stitch) ===
 function getTrimmedBounds() {
     let minR = state.rows, maxR = -1, minC = state.cols, maxC = -1;
     for (let r = 0; r < state.rows; r++) {
         for (let c = 0; c < state.cols; c++) {
-            if (state.grid[r][c]) {
+            const hasColor = !!state.grid[r][c];
+            const hasStitch = !!(state.stitchGrid[r] && state.stitchGrid[r][c]);
+            if (hasColor || hasStitch) {
                 minR = Math.min(minR, r);
                 maxR = Math.max(maxR, r);
                 minC = Math.min(minC, c);
@@ -524,7 +608,7 @@ function getTrimmedBounds() {
             }
         }
     }
-    if (maxR === -1) return null; // no painted cells
+    if (maxR === -1) return null; // no content
     return { minR, maxR, minC, maxC };
 }
 
@@ -555,9 +639,13 @@ function getPatternRegion() {
             }
             pattern.push(row);
         }
-        // Only return if there's at least one painted cell
-        const hasPaint = pattern.some(row => row.some(c => c !== null));
-        return hasPaint ? pattern : null;
+        // Return if there's at least one painted cell OR stitch
+        const hasContent = pattern.some((row, ri) => row.some((c, ci) => {
+            if (c !== null) return true;
+            const sr = sel.minR + ri, sc = sel.minC + ci;
+            return !!(state.stitchGrid[sr] && state.stitchGrid[sr][sc]);
+        }));
+        return hasContent ? pattern : null;
     }
     return getTrimmedPattern();
 }
@@ -579,15 +667,53 @@ function renderSelectionOverlay() {
     const cells = container.children;
     const sel = normalizeSelection();
 
+    // Clear cell highlights
+    for (let i = 0; i < cells.length; i++) {
+        cells[i].classList.remove('selected');
+    }
+
+    // Remove old selection box
+    let box = document.getElementById('selection-box');
+    if (box) box.remove();
+
+    if (!sel) return;
+
+    // Highlight selected cells with subtle tint
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         const r = +cell.dataset.row, c = +cell.dataset.col;
-        if (sel && r >= sel.minR && r <= sel.maxR && c >= sel.minC && c <= sel.maxC) {
+        if (r >= sel.minR && r <= sel.maxR && c >= sel.minC && c <= sel.maxC) {
             cell.classList.add('selected');
-        } else {
-            cell.classList.remove('selected');
         }
     }
+
+    // Create a single border overlay positioned over the selection
+    const topLeft = cells[sel.minR * state.cols + sel.minC];
+    const botRight = cells[sel.maxR * state.cols + sel.maxC];
+    if (!topLeft || !botRight) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const tlRect = topLeft.getBoundingClientRect();
+    const brRect = botRight.getBoundingClientRect();
+
+    box = document.createElement('div');
+    box.id = 'selection-box';
+    box.style.cssText = `
+        position: absolute;
+        border: 2px dashed #4fc3f7;
+        pointer-events: none;
+        z-index: 6;
+        border-radius: 2px;
+        box-sizing: border-box;
+        left: ${tlRect.left - containerRect.left - 1}px;
+        top: ${tlRect.top - containerRect.top - 1}px;
+        width: ${brRect.right - tlRect.left + 2}px;
+        height: ${brRect.bottom - tlRect.top + 2}px;
+    `;
+
+    // Append to grid-canvas-wrapper so it's positioned relative to the grid
+    const wrapper = container.closest('.grid-canvas-wrapper');
+    if (wrapper) wrapper.appendChild(box);
 }
 
 function clearSelection() {
@@ -598,6 +724,8 @@ function clearSelection() {
     for (const cell of container.children) {
         cell.classList.remove('selected');
     }
+    const box = document.getElementById('selection-box');
+    if (box) box.remove();
     const actions = document.getElementById('selection-actions');
     if (actions) actions.style.display = 'none';
 }
@@ -625,12 +753,17 @@ function copySelection() {
     const sel = normalizeSelection();
     if (!sel) return;
     state.clipboard = [];
+    state.clipboardStitches = [];
     for (let r = sel.minR; r <= sel.maxR; r++) {
-        const row = [];
+        const colorRow = [];
+        const stitchRow = [];
         for (let c = sel.minC; c <= sel.maxC; c++) {
-            row.push(state.grid[r][c]);
+            colorRow.push(state.grid[r][c]);
+            const s = state.stitchGrid[r] ? state.stitchGrid[r][c] : null;
+            stitchRow.push(s === null || typeof s === 'string' ? s : { ...s });
         }
-        state.clipboard.push(row);
+        state.clipboard.push(colorRow);
+        state.clipboardStitches.push(stitchRow);
     }
     showToast('Copied');
 }
@@ -642,10 +775,12 @@ function cutSelection() {
     for (let r = sel.minR; r <= sel.maxR; r++) {
         for (let c = sel.minC; c <= sel.maxC; c++) {
             state.grid[r][c] = null;
+            if (state.stitchGrid[r]) state.stitchGrid[r][c] = null;
             updateCellDOM(r, c);
         }
     }
     clearSelection();
+    renderGrid();
     pushHistory();
     showToast('Cut');
 }
@@ -655,6 +790,13 @@ function pasteClipboard() {
         showToast('Nothing to paste');
         return;
     }
+    // If there's a selection, paste at its top-left corner immediately
+    const sel = normalizeSelection();
+    if (sel) {
+        commitPaste(sel.minR, sel.minC);
+        return;
+    }
+    // Otherwise enter ghost mode
     state.isPasting = true;
     state.pasteGhostPos = { row: 0, col: 0 };
     showToast('Click to place');
@@ -692,14 +834,24 @@ function commitPaste(row, col) {
         for (let dc = 0; dc < clipCols; dc++) {
             const r = row + dr, c = col + dc;
             if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) continue;
+            // Paste colour
             const color = state.clipboard[dr][dc];
             if (color !== null) {
                 state.grid[r][c] = color;
-                updateCellDOM(r, c);
+            }
+            // Paste stitch
+            if (state.clipboardStitches && state.clipboardStitches[dr]) {
+                const stitch = state.clipboardStitches[dr][dc];
+                if (stitch !== null && stitch !== undefined) {
+                    if (state.stitchGrid[r]) {
+                        state.stitchGrid[r][c] = typeof stitch === 'string' ? stitch : { ...stitch };
+                    }
+                }
             }
         }
     }
     cancelPaste();
+    renderGrid();
     pushHistory();
     showToast('Pasted');
 }
@@ -710,9 +862,11 @@ function deleteSelection() {
     for (let r = sel.minR; r <= sel.maxR; r++) {
         for (let c = sel.minC; c <= sel.maxC; c++) {
             state.grid[r][c] = null;
+            if (state.stitchGrid[r]) state.stitchGrid[r][c] = null;
             updateCellDOM(r, c);
         }
     }
     clearSelection();
+    renderGrid();
     pushHistory();
 }
