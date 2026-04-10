@@ -34,6 +34,9 @@ function initStitchPalette() {
             case 'purl': drawPurlIcon(ctx, 0, 0, 40); break;
             case 'left-cross': drawCrossIcon(ctx, 40, 'left'); break;
             case 'right-cross': drawCrossIcon(ctx, 40, 'right'); break;
+            case 'k-right': drawKLeanIcon(ctx, 0, 0, 40, 'right'); break;
+            case 'k-left': drawKLeanIcon(ctx, 0, 0, 40, 'left'); break;
+            case 'hole': drawHoleIcon(ctx, 0, 0, 40); break;
         }
     });
 }
@@ -106,6 +109,39 @@ function drawCrossIcon(ctx, s, dir) {
     ctx.fillText(dir === 'left' ? 'L' : 'R', s*0.5, s*0.98);
 }
 
+function drawHoleIcon(ctx, x, y, s) {
+    // Open circle representing a lace hole
+    ctx.strokeStyle = STITCH_COLORS.yarn;
+    ctx.lineWidth = s * 0.1;
+    ctx.beginPath();
+    ctx.arc(x + s*0.5, y + s*0.5, s*0.3, 0, Math.PI * 2);
+    ctx.stroke();
+    // Small dot in center
+    ctx.fillStyle = STITCH_COLORS.yarnDark;
+    ctx.beginPath();
+    ctx.arc(x + s*0.5, y + s*0.5, s*0.06, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawKLeanIcon(ctx, x, y, s, dir) {
+    const cx = x + s * 0.5, cy = y + s * 0.5;
+    const angle = dir === 'right' ? Math.PI / 4 : -Math.PI / 4; // 45 deg
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = STITCH_COLORS.yarn;
+    ctx.lineWidth = s * 0.14;
+    // Smaller V drawn at origin
+    const vs = s * 0.35; // half-size of the V
+    ctx.beginPath();
+    ctx.moveTo(-vs, -vs * 0.6);
+    ctx.lineTo(0, vs * 0.6);
+    ctx.lineTo(vs, -vs * 0.6);
+    ctx.stroke();
+    ctx.restore();
+}
+
 // ========================================
 // EVENTS
 // ========================================
@@ -122,7 +158,7 @@ function bindStitchEvents() {
         if (!cell) return;
         const r = +cell.dataset.row, c = +cell.dataset.col;
 
-        if (state.activeStitch === 'knit' || state.activeStitch === 'purl' || state.activeStitch === 'stitch-erase') {
+        if (['knit', 'purl', 'k-right', 'k-left', 'hole', 'stitch-erase'].includes(state.activeStitch)) {
             e.preventDefault();
             e.stopPropagation();
             applySimpleStitch(r, c);
@@ -145,7 +181,7 @@ function bindStitchEvents() {
         if (!cell) return;
         const r = +cell.dataset.row, c = +cell.dataset.col;
 
-        if ((state.activeStitch === 'knit' || state.activeStitch === 'purl' || state.activeStitch === 'stitch-erase') && state.isPainting) {
+        if (['knit', 'purl', 'k-right', 'k-left', 'hole', 'stitch-erase'].includes(state.activeStitch) && state.isPainting) {
             applySimpleStitch(r, c);
             return;
         }
@@ -213,6 +249,12 @@ function applySimpleStitch(r, c) {
         state.stitchGrid[r][c] = 'knit';
     } else if (state.activeStitch === 'purl') {
         state.stitchGrid[r][c] = 'purl';
+    } else if (state.activeStitch === 'k-right') {
+        state.stitchGrid[r][c] = 'k-right';
+    } else if (state.activeStitch === 'k-left') {
+        state.stitchGrid[r][c] = 'k-left';
+    } else if (state.activeStitch === 'hole') {
+        state.stitchGrid[r][c] = 'hole';
     }
     renderStitchOverlay();
 }
@@ -406,9 +448,10 @@ function renderStitchOverlay() {
     if (!container || !container.children.length) return;
 
     const gridRect = container.getBoundingClientRect();
-    canvas.width = gridRect.width;
+    const balanceMargin = 24; // extra space for row balance indicators
+    canvas.width = gridRect.width + balanceMargin;
     canvas.height = gridRect.height;
-    canvas.style.width = gridRect.width + 'px';
+    canvas.style.width = (gridRect.width + balanceMargin) + 'px';
     canvas.style.height = gridRect.height + 'px';
 
     const ctx = canvas.getContext('2d');
@@ -438,12 +481,44 @@ function renderStitchOverlay() {
                 drawKnitOverlay(ctx, x, y, cellW, cellH);
             } else if (stitch === 'purl') {
                 drawPurlOverlay(ctx, x, y, cellW, cellH);
+            } else if (stitch === 'k-right') {
+                drawKLeanOverlay(ctx, x, y, cellW, cellH, 'right');
+            } else if (stitch === 'k-left') {
+                drawKLeanOverlay(ctx, x, y, cellW, cellH, 'left');
+            } else if (stitch === 'hole') {
+                drawHoleOverlay(ctx, x, y, cellW, cellH);
             } else if (typeof stitch === 'object' && !drawnCrossings.has(stitch.id)) {
                 drawnCrossings.add(stitch.id);
                 const startX = (c - stitch.pos) * stepX;
                 drawCrossingOverlay(ctx, startX, y, cellW, cellH, stitch, gap);
             }
         }
+    }
+
+    // Draw row balance indicators
+    drawRowBalanceIndicators(ctx, stepX, stepY, cellW, cellH);
+}
+
+function drawRowBalanceIndicators(ctx, stepX, stepY, cellW, cellH) {
+    for (let r = 0; r < state.rows; r++) {
+        if (!state.stitchGrid[r]) continue;
+
+        let holes = 0;
+        for (let c = 0; c < state.cols; c++) {
+            if (state.stitchGrid[r][c] === 'hole') holes++;
+        }
+
+        if (holes === 0) continue;
+
+        // Show hole count as a small indicator
+        const y = r * stepY + cellH / 2;
+        const x = state.cols * stepX + 4;
+
+        ctx.font = `bold ${Math.min(12, cellH * 0.5)}px sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.fillText(`${holes}\u25CB`, x, y); // e.g. "2○"
     }
 }
 
@@ -474,6 +549,39 @@ function drawPurlOverlay(ctx, x, y, w, h) {
     ctx.beginPath();
     ctx.moveTo(x + w*0.2, y + h*0.5);
     ctx.lineTo(x + w*0.8, y + h*0.5);
+    ctx.stroke();
+}
+
+function drawKLeanOverlay(ctx, x, y, w, h, dir) {
+    const cx = x + w * 0.5, cy = y + h * 0.5;
+    const angle = dir === 'right' ? Math.PI / 4 : -Math.PI / 4;
+    const lw = Math.max(1.5, w * 0.12);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = STITCH_COLORS.yarn;
+    ctx.lineWidth = lw;
+    const vs = Math.min(w, h) * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(-vs, -vs * 0.6);
+    ctx.lineTo(0, vs * 0.6);
+    ctx.lineTo(vs, -vs * 0.6);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawHoleOverlay(ctx, x, y, w, h) {
+    // Filled dark circle with bright ring — stands out clearly among stitches
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.arc(x + w*0.5, y + h*0.5, Math.min(w, h) * 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    // Subtle ring
+    ctx.strokeStyle = 'rgba(79, 195, 247, 0.35)';
+    ctx.lineWidth = Math.max(1.5, w * 0.09);
+    ctx.beginPath();
+    ctx.arc(x + w*0.5, y + h*0.5, Math.min(w, h) * 0.35, 0, Math.PI * 2);
     ctx.stroke();
 }
 

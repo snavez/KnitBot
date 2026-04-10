@@ -630,7 +630,9 @@ function getTrimmedPattern() {
 // Returns pattern from selection if active, otherwise auto-trims
 function getPatternRegion() {
     const sel = normalizeSelection();
-    if (sel) {
+    // Only use selection if it spans more than a single cell
+    const selIsUseful = sel && (sel.maxR > sel.minR || sel.maxC > sel.minC);
+    if (selIsUseful) {
         const pattern = [];
         for (let r = sel.minR; r <= sel.maxR; r++) {
             const row = [];

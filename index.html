@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Knitting Pattern Designer</title>
-    <link rel="stylesheet" href="css/style.css?v=5">
+    <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
     <header>
@@ -87,6 +87,18 @@
                 <div class="stitch-tile" data-stitch="right-cross" title="Right Cross — click &amp; drag across cells. Reads K/P from row below to determine crossing.">
                     <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
                     <span>Right X</span>
+                </div>
+                <div class="stitch-tile" data-stitch="k-right" title="Right-leaning knit — becomes K2tog in instructions">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>K /</span>
+                </div>
+                <div class="stitch-tile" data-stitch="k-left" title="Left-leaning knit — becomes SSK in instructions">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>K \</span>
+                </div>
+                <div class="stitch-tile" data-stitch="hole" title="Lace hole — becomes YO in instructions">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>Hole</span>
                 </div>
                 <div class="stitch-tile stitch-tile-erase" data-stitch="stitch-erase" title="Erase stitch type">
                     <span class="stitch-erase-icon">&#x2715;</span>
@@ -259,12 +271,12 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/app.js?v=5"></script>
-    <script src="js/preview.js?v=5"></script>
-    <script src="js/print.js?v=5"></script>
-    <script src="js/instructions.js?v=5"></script>
-    <script src="js/random.js?v=5"></script>
-    <script src="js/image.js?v=5"></script>
-    <script src="js/cables.js?v=5"></script>
+    <script src="js/app.js?v=9"></script>
+    <script src="js/preview.js?v=9"></script>
+    <script src="js/print.js?v=9"></script>
+    <script src="js/instructions.js?v=9"></script>
+    <script src="js/random.js?v=9"></script>
+    <script src="js/image.js?v=9"></script>
+    <script src="js/cables.js?v=9"></script>
 </body>
 </html>

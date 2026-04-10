@@ -113,6 +113,15 @@ function preparePrint() {
             } else if (stitch === 'knit') {
                 td.textContent = STITCH_PRINT_SYMBOLS.knit;
                 td.className = (td.className + ' stitch-cell').trim();
+            } else if (stitch === 'k-right') {
+                td.textContent = '/';
+                td.className = (td.className + ' stitch-cell').trim();
+            } else if (stitch === 'k-left') {
+                td.textContent = '\\';
+                td.className = (td.className + ' stitch-cell').trim();
+            } else if (stitch === 'hole') {
+                td.textContent = '\u25CB'; // ○
+                td.className = (td.className + ' stitch-cell').trim();
             } else if (hasColors && color) {
                 // No stitch override — show colour symbol
                 td.textContent = colorSymbolMap[color];

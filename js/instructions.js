@@ -162,6 +162,28 @@ function formatInstructionsText(pattern, mode) {
             text += `  ${cx.notation}: ${cx.description}\n`;
         });
     }
+
+    // Check for lace/decrease features
+    const hasHoles = stitchRegion && stitchRegion.some(row =>
+        row && row.some(s => s === 'hole')
+    );
+    const hasLeans = stitchRegion && stitchRegion.some(row =>
+        row && row.some(s => s === 'k-right' || s === 'k-left')
+    );
+    if (hasHoles || hasLeans) {
+        text += '\nLace/Decrease Abbreviations:\n';
+        if (hasHoles) text += '  YO = Yarn over (creates decorative hole)\n';
+        if (hasLeans || hasHoles) {
+            text += '  K2tog = Knit 2 together (right-leaning decrease)\n';
+            text += '  SSK = Slip, slip, knit (left-leaning decrease)\n';
+            text += '  P2tog = Purl 2 together (WS right-leaning decrease)\n';
+            text += '  SSP = Slip, slip, purl (WS left-leaning decrease)\n';
+        }
+        if (hasHoles) {
+            text += '  S2KP = Sl 1 kwise, K2tog, psso (centred double decrease, balances 2 YOs)\n';
+            text += '  SP2P = Sl 1 pwise, P2tog, pass sl st over (WS centred double decrease)\n';
+        }
+    }
     text += '\n';
 
     // Instructions
@@ -265,6 +287,17 @@ function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverse
         } else if (stitch && typeof stitch === 'object') {
             // Already processed cable cell, skip
             continue;
+        } else if (stitch === 'k-right') {
+            // Right-leaning decrease: K2tog on RS, P2tog on WS
+            const isRS = (defaultSt === 'K');
+            tokens.push({ text: isRS ? 'K2tog' : 'P2tog', span: 1, isDecrease: true });
+        } else if (stitch === 'k-left') {
+            // Left-leaning decrease: SSK on RS, SSP on WS
+            const isRS = (defaultSt === 'K');
+            tokens.push({ text: isRS ? 'SSK' : 'SSP', span: 1, isDecrease: true });
+        } else if (stitch === 'hole') {
+            // Hole = YO
+            tokens.push({ text: 'YO', span: 1, isHole: true });
         } else {
             // Simple stitch: knit, purl, or default
             const isPurl = (stitch === 'purl');
@@ -277,6 +310,67 @@ function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverse
 
     // Reverse if reading R-to-L
     if (reverseRead) tokens.reverse();
+
+    // Insert balancing decreases for holes (YOs) that aren't already balanced
+    // by explicit k-right/k-left lean stitches.
+    const isRS = (defaultSt === 'K');
+
+    // Count explicit decreases vs holes
+    let explicitDecCount = tokens.filter(t => t.isDecrease).length;
+    let holeCount = tokens.filter(t => t.isHole).length;
+    let unbalancedHoles = holeCount - explicitDecCount;
+
+    // If all holes are already balanced by explicit lean stitches, skip auto-decrease
+    if (unbalancedHoles <= 0) {
+        // All balanced — skip to run-length encoding
+    } else {
+
+    const pairedHoles = new Set();
+
+    // Pass 1: Find hole-knit-hole patterns (centred double decrease)
+    for (let i = 0; i < tokens.length - 2; i++) {
+        if (tokens[i].isHole && !pairedHoles.has(i) &&
+            tokens[i+1].st && !tokens[i+1].converted &&
+            tokens[i+2].isHole && !pairedHoles.has(i+2)) {
+            // Found: YO, [knit], YO → convert middle to S2KP
+            const technique = isRS ? 'S2KP' : 'SP2P';
+            tokens[i+1] = { text: technique, span: 1, converted: true };
+            pairedHoles.add(i);
+            pairedHoles.add(i+2);
+            // S2KP is a double decrease (-2), balanced by the 2 YOs (+2) — perfectly balanced
+        }
+    }
+
+    // Pass 2: Remaining unpaired holes need single decreases
+    for (let i = 0; i < tokens.length; i++) {
+        if (!tokens[i].isHole || pairedHoles.has(i)) continue;
+
+        // Find the nearest unconverted knit stitch
+        let bestIdx = -1;
+        for (let d = 1; d < tokens.length; d++) {
+            const ri = i + d;
+            if (ri < tokens.length && tokens[ri].st === defaultSt && !tokens[ri].converted) {
+                bestIdx = ri;
+                break;
+            }
+            const li = i - d;
+            if (li >= 0 && tokens[li].st === defaultSt && !tokens[li].converted) {
+                bestIdx = li;
+                break;
+            }
+        }
+        if (bestIdx >= 0) {
+            const isAfterHole = bestIdx > i;
+            let technique;
+            if (!isRS) {
+                technique = 'P2tog';
+            } else {
+                technique = isAfterHole ? 'K2tog' : 'SSK';
+            }
+            tokens[bestIdx] = { text: technique, span: 1, converted: true };
+        }
+    }
+    } // end if (unbalancedHoles > 0)
 
     // Now run-length encode the simple stitch tokens, keeping cable tokens as-is
     const parts = [];
@@ -413,12 +507,19 @@ function collectUniqueCrossings(stitchRegion) {
 
 // === Instructions Modal ===
 function openInstructionsModal() {
+    // Clear any stale single-cell selections that would interfere
+    if (state.selection && typeof clearSelection === 'function') {
+        const sel = normalizeSelection();
+        if (sel && sel.minR === sel.maxR && sel.minC === sel.maxC) {
+            clearSelection();
+        }
+    }
     const pattern = getPatternRegion();
     if (!pattern) {
         showToast('Add some stitches or paint some cells first!');
         return;
     }
-    const mode = state.knittingMode; // use global mode from toolbar
+    const mode = state.knittingMode;
     const text = formatInstructionsText(pattern, mode);
     document.getElementById('instructions-text').textContent = text;
     document.getElementById('instructions-modal').classList.add('open');
