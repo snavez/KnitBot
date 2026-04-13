@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Knitting Pattern Designer</title>
-    <link rel="stylesheet" href="css/style.css?v=9">
+    <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
     <header>
@@ -20,8 +20,46 @@
             <button id="btn-image" title="Import image as pattern">Image</button>
             <button id="btn-preview" class="btn-primary" title="Preview repeating pattern">Preview</button>
             <button id="btn-instructions" title="Export knitting instructions &amp; print">Instructions</button>
+            <button id="btn-knit" title="Active knitting mode — follow along row by row">Knit!</button>
         </div>
     </header>
+
+    <!-- Active Knitting Overlay -->
+    <div id="knit-overlay" class="knit-overlay" style="display:none;">
+        <div class="knit-bar">
+            <div class="knit-bar-left">
+                <button id="knit-prev" title="Previous row">&laquo; Prev</button>
+                <span class="knit-row-label" id="knit-row-label">Row 1</span>
+                <button id="knit-next" title="Next row">Next &raquo;</button>
+            </div>
+            <div class="knit-bar-center">
+                <span class="knit-direction" id="knit-direction"></span>
+            </div>
+            <div class="knit-bar-right">
+                <button id="knit-fullscreen" title="Toggle fullscreen instruction view">Fullscreen</button>
+                <button id="knit-exit" title="Exit knitting mode">Exit</button>
+            </div>
+        </div>
+        <div class="knit-instruction" id="knit-instruction"></div>
+    </div>
+
+    <!-- Fullscreen Knitting View -->
+    <div id="knit-fullscreen-view" class="knit-fullscreen-view" style="display:none;">
+        <div class="knit-fs-header">
+            <button id="knit-fs-prev" class="knit-fs-nav">&laquo;</button>
+            <div class="knit-fs-info">
+                <span class="knit-fs-row" id="knit-fs-row">Row 1</span>
+                <span class="knit-fs-direction" id="knit-fs-direction"></span>
+            </div>
+            <button id="knit-fs-next" class="knit-fs-nav">&raquo;</button>
+        </div>
+        <div class="knit-fs-instruction" id="knit-fs-instruction"></div>
+        <div class="knit-fs-progress" id="knit-fs-progress"></div>
+        <div class="knit-fs-footer">
+            <button id="knit-fs-grid">Back to Grid</button>
+            <button id="knit-fs-exit">Exit Knitting</button>
+        </div>
+    </div>
 
     <main>
         <section class="toolbar">
@@ -271,12 +309,13 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/app.js?v=9"></script>
-    <script src="js/preview.js?v=9"></script>
-    <script src="js/print.js?v=9"></script>
-    <script src="js/instructions.js?v=9"></script>
-    <script src="js/random.js?v=9"></script>
-    <script src="js/image.js?v=9"></script>
-    <script src="js/cables.js?v=9"></script>
+    <script src="js/app.js?v=11"></script>
+    <script src="js/preview.js?v=11"></script>
+    <script src="js/print.js?v=11"></script>
+    <script src="js/instructions.js?v=11"></script>
+    <script src="js/random.js?v=11"></script>
+    <script src="js/image.js?v=11"></script>
+    <script src="js/cables.js?v=11"></script>
+    <script src="js/knit-mode.js?v=1"></script>
 </body>
 </html>

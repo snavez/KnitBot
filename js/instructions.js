@@ -300,9 +300,16 @@ function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverse
             tokens.push({ text: 'YO', span: 1, isHole: true });
         } else {
             // Simple stitch: knit, purl, or default
+            // The chart shows the RS appearance. On WS rows, K↔P are flipped:
+            // chart 'knit' = purl on WS, chart 'purl' = knit on WS
             const isPurl = (stitch === 'purl');
-            const isKnit = (stitch === 'knit') || (!stitch);
-            const st = isPurl ? 'P' : defaultSt;
+            const isWS = (defaultSt === 'P');
+            let st;
+            if (isPurl) {
+                st = isWS ? 'K' : 'P'; // purl on chart: K on WS, P on RS
+            } else {
+                st = isWS ? 'P' : 'K'; // knit on chart: P on WS, K on RS
+            }
             const color = colorRow[c];
             tokens.push({ st: st, color: color, span: 1 });
         }
