@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Knitting Pattern Designer</title>
-    <link rel="stylesheet" href="css/style.css?v=12">
+    <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
     <header>
@@ -71,10 +71,12 @@
                 </select>
             </div>
             <div class="tool-group">
-                <label>Grid Size:</label>
-                <input type="number" id="grid-rows" min="2" max="80" value="20" title="Rows">
+                <label>Grid:</label>
+                <span class="input-label">H</span>
+                <input type="number" id="grid-rows" min="2" max="80" value="20" title="Height (rows)">
                 <span>x</span>
-                <input type="number" id="grid-cols" min="2" max="80" value="20" title="Columns">
+                <span class="input-label">W</span>
+                <input type="number" id="grid-cols" min="2" max="80" value="20" title="Width (stitches)">
                 <button id="btn-resize">Resize</button>
             </div>
             <div class="tool-group color-palette" id="color-palette">
@@ -145,6 +147,10 @@
                 <div class="stitch-tile" data-stitch="hole" title="Lace hole — becomes YO in instructions">
                     <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
                     <span>Hole</span>
+                </div>
+                <div class="stitch-tile" data-stitch="no-stitch" title="No stitch — this cell doesn't exist in the pattern (for shaped knitting)">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>No St</span>
                 </div>
                 <div class="stitch-tile stitch-tile-erase" data-stitch="stitch-erase" title="Erase stitch type">
                     <span class="stitch-erase-icon">&#x2715;</span>
@@ -319,13 +325,13 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/app.js?v=12"></script>
-    <script src="js/preview.js?v=12"></script>
-    <script src="js/print.js?v=12"></script>
-    <script src="js/instructions.js?v=12"></script>
-    <script src="js/random.js?v=12"></script>
-    <script src="js/image.js?v=12"></script>
-    <script src="js/cables.js?v=12"></script>
+    <script src="js/app.js?v=13"></script>
+    <script src="js/preview.js?v=13"></script>
+    <script src="js/print.js?v=13"></script>
+    <script src="js/instructions.js?v=13"></script>
+    <script src="js/random.js?v=13"></script>
+    <script src="js/image.js?v=13"></script>
+    <script src="js/cables.js?v=13"></script>
     <script src="js/knit-mode.js?v=1"></script>
 </body>
 </html>

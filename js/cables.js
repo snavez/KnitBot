@@ -39,6 +39,7 @@ function initStitchPalette() {
             case 'm1r': drawM1Icon(ctx, 0, 0, 40, 'right'); break;
             case 'm1l': drawM1Icon(ctx, 0, 0, 40, 'left'); break;
             case 'hole': drawHoleIcon(ctx, 0, 0, 40); break;
+            case 'no-stitch': drawNoStitchIcon(ctx, 0, 0, 40); break;
         }
     });
 }
@@ -199,6 +200,23 @@ function drawKLeanIcon(ctx, x, y, s, dir) {
     }
 }
 
+function drawNoStitchIcon(ctx, x, y, s) {
+    // Grey X indicating no stitch exists here
+    ctx.fillStyle = '#2a2a3e';
+    ctx.fillRect(x, y, s, s);
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = s * 0.08;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + s*0.25, y + s*0.25);
+    ctx.lineTo(x + s*0.75, y + s*0.75);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + s*0.75, y + s*0.25);
+    ctx.lineTo(x + s*0.25, y + s*0.75);
+    ctx.stroke();
+}
+
 // ========================================
 // EVENTS
 // ========================================
@@ -215,7 +233,7 @@ function bindStitchEvents() {
         if (!cell) return;
         const r = +cell.dataset.row, c = +cell.dataset.col;
 
-        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'stitch-erase'].includes(state.activeStitch)) {
+        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'no-stitch', 'stitch-erase'].includes(state.activeStitch)) {
             e.preventDefault();
             e.stopPropagation();
             applySimpleStitch(r, c);
@@ -238,7 +256,7 @@ function bindStitchEvents() {
         if (!cell) return;
         const r = +cell.dataset.row, c = +cell.dataset.col;
 
-        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'stitch-erase'].includes(state.activeStitch) && state.isPainting) {
+        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'no-stitch', 'stitch-erase'].includes(state.activeStitch) && state.isPainting) {
             applySimpleStitch(r, c);
             return;
         }
@@ -316,6 +334,8 @@ function applySimpleStitch(r, c) {
         state.stitchGrid[r][c] = 'm1l';
     } else if (state.activeStitch === 'hole') {
         state.stitchGrid[r][c] = 'hole';
+    } else if (state.activeStitch === 'no-stitch') {
+        state.stitchGrid[r][c] = 'no-stitch';
     }
     renderStitchOverlay();
 }
@@ -552,6 +572,8 @@ function renderStitchOverlay() {
                 drawM1Overlay(ctx, x, y, cellW, cellH, 'left');
             } else if (stitch === 'hole') {
                 drawHoleOverlay(ctx, x, y, cellW, cellH);
+            } else if (stitch === 'no-stitch') {
+                drawNoStitchOverlay(ctx, x, y, cellW, cellH);
             } else if (typeof stitch === 'object' && !drawnCrossings.has(stitch.id)) {
                 drawnCrossings.add(stitch.id);
                 const startX = (c - stitch.pos) * stepX;
@@ -614,6 +636,23 @@ function drawPurlOverlay(ctx, x, y, w, h) {
     ctx.beginPath();
     ctx.moveTo(x + w*0.2, y + h*0.5);
     ctx.lineTo(x + w*0.8, y + h*0.5);
+    ctx.stroke();
+}
+
+function drawNoStitchOverlay(ctx, x, y, w, h) {
+    // Dark grey fill with subtle X
+    ctx.fillStyle = 'rgba(30, 30, 45, 0.85)';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(100, 100, 120, 0.4)';
+    ctx.lineWidth = Math.max(1, w * 0.06);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + w*0.25, y + h*0.25);
+    ctx.lineTo(x + w*0.75, y + h*0.75);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + w*0.75, y + h*0.25);
+    ctx.lineTo(x + w*0.25, y + h*0.75);
     ctx.stroke();
 }
 

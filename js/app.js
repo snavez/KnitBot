@@ -204,7 +204,12 @@ function paintCell(row, col) {
     } else if (state.activeTool === 'fill') {
         floodFill(row, col, state.grid[row][col], state.activeColor);
     } else {
-        state.grid[row][col] = state.activeColor;
+        // Toggle: if cell already has the active colour, clear it
+        if (state.grid[row][col] === state.activeColor) {
+            state.grid[row][col] = null;
+        } else {
+            state.grid[row][col] = state.activeColor;
+        }
     }
 
     updateCellDOM(row, col);

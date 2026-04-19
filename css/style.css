@@ -134,6 +134,12 @@ button:disabled {
     white-space: nowrap;
 }
 
+.input-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
 input[type="number"], select {
     background: var(--bg);
     color: var(--text);

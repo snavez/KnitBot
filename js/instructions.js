@@ -309,6 +309,9 @@ function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverse
         } else if (stitch === 'hole') {
             // Hole = YO
             tokens.push({ text: 'YO', span: 1, isHole: true });
+        } else if (stitch === 'no-stitch') {
+            // Skip — this cell doesn't exist in the pattern
+            continue;
         } else {
             // Simple stitch: knit, purl, or default
             // The chart shows the RS appearance. On WS rows, K↔P are flipped:
