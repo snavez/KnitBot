@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Knitting Pattern Designer</title>
-    <link rel="stylesheet" href="css/style.css?v=11">
+    <link rel="stylesheet" href="css/style.css?v=12">
 </head>
 <body>
     <header>
@@ -134,6 +134,14 @@
                     <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
                     <span>K \</span>
                 </div>
+                <div class="stitch-tile" data-stitch="m1r" title="Make 1 Right — invisible right-leaning increase">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>M1R</span>
+                </div>
+                <div class="stitch-tile" data-stitch="m1l" title="Make 1 Left — invisible left-leaning increase">
+                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                    <span>M1L</span>
+                </div>
                 <div class="stitch-tile" data-stitch="hole" title="Lace hole — becomes YO in instructions">
                     <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
                     <span>Hole</span>
@@ -182,12 +190,14 @@
                 <button class="modal-close" id="instructions-close">&times;</button>
             </div>
             <div class="modal-controls">
+                <button id="btn-regenerate-instructions" title="Regenerate from grid (overwrites edits)">Regenerate</button>
                 <button id="btn-copy-instructions">Copy to Clipboard</button>
                 <button id="btn-download-instructions">Download .txt</button>
                 <button id="btn-print-instructions" class="btn-primary">Print / PDF</button>
+                <span class="instructions-edit-hint" id="instructions-edit-hint">Click text to edit</span>
             </div>
             <div class="instructions-content">
-                <pre id="instructions-text"></pre>
+                <pre id="instructions-text" contenteditable="true" spellcheck="false"></pre>
             </div>
         </div>
     </div>
@@ -309,13 +319,13 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/app.js?v=11"></script>
-    <script src="js/preview.js?v=11"></script>
-    <script src="js/print.js?v=11"></script>
-    <script src="js/instructions.js?v=11"></script>
-    <script src="js/random.js?v=11"></script>
-    <script src="js/image.js?v=11"></script>
-    <script src="js/cables.js?v=11"></script>
+    <script src="js/app.js?v=12"></script>
+    <script src="js/preview.js?v=12"></script>
+    <script src="js/print.js?v=12"></script>
+    <script src="js/instructions.js?v=12"></script>
+    <script src="js/random.js?v=12"></script>
+    <script src="js/image.js?v=12"></script>
+    <script src="js/cables.js?v=12"></script>
     <script src="js/knit-mode.js?v=1"></script>
 </body>
 </html>

@@ -170,7 +170,10 @@ function formatInstructionsText(pattern, mode) {
     const hasLeans = stitchRegion && stitchRegion.some(row =>
         row && row.some(s => s === 'k-right' || s === 'k-left')
     );
-    if (hasHoles || hasLeans) {
+    const hasM1 = stitchRegion && stitchRegion.some(row =>
+        row && row.some(s => s === 'm1r' || s === 'm1l')
+    );
+    if (hasHoles || hasLeans || hasM1) {
         text += '\nLace/Decrease Abbreviations:\n';
         if (hasHoles) text += '  YO = Yarn over (creates decorative hole)\n';
         if (hasLeans || hasHoles) {
@@ -182,6 +185,10 @@ function formatInstructionsText(pattern, mode) {
         if (hasHoles) {
             text += '  S2KP = Sl 1 kwise, K2tog, psso (centred double decrease, balances 2 YOs)\n';
             text += '  SP2P = Sl 1 pwise, P2tog, pass sl st over (WS centred double decrease)\n';
+        }
+        if (hasM1) {
+            text += '  M1R = Make 1 right (pick up bar back-to-front, knit through front loop)\n';
+            text += '  M1L = Make 1 left (pick up bar front-to-back, knit through back loop)\n';
         }
     }
     text += '\n';
@@ -295,6 +302,10 @@ function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverse
             // Left-leaning decrease: SSK on RS, SSP on WS
             const isRS = (defaultSt === 'K');
             tokens.push({ text: isRS ? 'SSK' : 'SSP', span: 1, isDecrease: true });
+        } else if (stitch === 'm1r') {
+            tokens.push({ text: 'M1R', span: 1, isIncrease: true });
+        } else if (stitch === 'm1l') {
+            tokens.push({ text: 'M1L', span: 1, isIncrease: true });
         } else if (stitch === 'hole') {
             // Hole = YO
             tokens.push({ text: 'YO', span: 1, isHole: true });
@@ -526,10 +537,38 @@ function openInstructionsModal() {
         showToast('Add some stitches or paint some cells first!');
         return;
     }
+
+    const textEl = document.getElementById('instructions-text');
+    const hintEl = document.getElementById('instructions-edit-hint');
+
+    // If we have saved custom instructions, show those; otherwise generate
+    if (state.customInstructions) {
+        textEl.textContent = state.customInstructions;
+        hintEl.innerHTML = '<span class="instructions-edited">Edited</span> — click text to edit';
+    } else {
+        const mode = state.knittingMode;
+        const text = formatInstructionsText(pattern, mode);
+        textEl.textContent = text;
+        hintEl.textContent = 'Click text to edit';
+    }
+    document.getElementById('instructions-modal').classList.add('open');
+}
+
+function regenerateInstructions() {
+    const pattern = getPatternRegion();
+    if (!pattern) return;
     const mode = state.knittingMode;
     const text = formatInstructionsText(pattern, mode);
     document.getElementById('instructions-text').textContent = text;
-    document.getElementById('instructions-modal').classList.add('open');
+    state.customInstructions = null; // clear saved edits
+    document.getElementById('instructions-edit-hint').textContent = 'Click text to edit';
+    showToast('Instructions regenerated');
+}
+
+function saveCustomInstructions() {
+    const text = document.getElementById('instructions-text').textContent;
+    state.customInstructions = text;
+    document.getElementById('instructions-edit-hint').innerHTML = '<span class="instructions-edited">Edited</span> — click text to edit';
 }
 
 function closeInstructionsModal() {
@@ -567,10 +606,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-print-instructions').addEventListener('click', () => {
         preparePrint();
     });
+    document.getElementById('btn-regenerate-instructions').addEventListener('click', regenerateInstructions);
+
+    // Auto-save edits when the user modifies the instructions text
+    document.getElementById('instructions-text').addEventListener('input', () => {
+        saveCustomInstructions();
+    });
 
     // Re-generate instructions when global knitting mode changes
     document.getElementById('knitting-mode').addEventListener('change', () => {
         if (document.getElementById('instructions-modal').classList.contains('open')) {
+            state.customInstructions = null; // mode changed, regenerate
             openInstructionsModal();
         }
     });

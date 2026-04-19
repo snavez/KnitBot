@@ -702,6 +702,24 @@ select {
     padding: 16px;
     border-radius: 4px;
     border: 1px solid var(--border);
+    outline: none;
+    cursor: text;
+}
+
+.instructions-content pre:focus {
+    border-color: var(--accent);
+}
+
+.instructions-edit-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.instructions-edited {
+    color: #f1c40f;
+    font-size: 0.7rem;
+    font-style: italic;
 }
 
 /* === Active Knitting Mode === */

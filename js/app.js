@@ -13,6 +13,7 @@ const state = {
     maxHistory: 50,
     patternName: '',
     knittingMode: 'flat', // 'flat' or 'round'
+    customInstructions: null, // user-edited instruction text, saved with pattern
     // Selection / copy-paste
     selection: null,
     clipboard: null,
@@ -508,6 +509,7 @@ function restorePatternData(data) {
     state.stitchGrid = data.stitchGrid || initEmptyStitchGrid(data.rows, data.cols);
     state.patternName = data.name || '';
     state.knittingMode = data.knittingMode || 'flat';
+    state.customInstructions = data.customInstructions || null;
     document.getElementById('grid-rows').value = state.rows;
     document.getElementById('grid-cols').value = state.cols;
     document.getElementById('pattern-name').value = state.patternName;
@@ -529,6 +531,7 @@ function saveToFile() {
         grid: state.grid,
         stitchGrid: state.stitchGrid,
         knittingMode: state.knittingMode,
+        customInstructions: state.customInstructions,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

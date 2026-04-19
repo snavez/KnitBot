@@ -36,6 +36,8 @@ function initStitchPalette() {
             case 'right-cross': drawCrossIcon(ctx, 40, 'right'); break;
             case 'k-right': drawKLeanIcon(ctx, 0, 0, 40, 'right'); break;
             case 'k-left': drawKLeanIcon(ctx, 0, 0, 40, 'left'); break;
+            case 'm1r': drawM1Icon(ctx, 0, 0, 40, 'right'); break;
+            case 'm1l': drawM1Icon(ctx, 0, 0, 40, 'left'); break;
             case 'hole': drawHoleIcon(ctx, 0, 0, 40); break;
         }
     });
@@ -109,6 +111,37 @@ function drawCrossIcon(ctx, s, dir) {
     ctx.fillText(dir === 'left' ? 'L' : 'R', s*0.5, s*0.98);
 }
 
+function drawM1Icon(ctx, x, y, s, dir) {
+    // Upward arrow showing an increase, leaning left or right
+    const cx = x + s * 0.5, cy = y + s * 0.5;
+    ctx.lineCap = 'round';
+    // Arrow shaft
+    ctx.strokeStyle = STITCH_COLORS.yarn;
+    ctx.lineWidth = s * 0.12;
+    const lean = dir === 'right' ? s * 0.1 : -s * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(cx - lean, y + s * 0.8);
+    ctx.lineTo(cx + lean, y + s * 0.25);
+    ctx.stroke();
+    // Arrow head
+    ctx.beginPath();
+    ctx.moveTo(cx + lean - s*0.12, y + s * 0.38);
+    ctx.lineTo(cx + lean, y + s * 0.2);
+    ctx.lineTo(cx + lean + s*0.12, y + s * 0.38);
+    ctx.stroke();
+    // Plus sign
+    ctx.strokeStyle = STITCH_COLORS.yarnDark;
+    ctx.lineWidth = s * 0.07;
+    ctx.beginPath();
+    ctx.moveTo(x + s*0.15, y + s*0.5);
+    ctx.lineTo(x + s*0.3, y + s*0.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + s*0.225, y + s*0.42);
+    ctx.lineTo(x + s*0.225, y + s*0.58);
+    ctx.stroke();
+}
+
 function drawHoleIcon(ctx, x, y, s) {
     // Open circle representing a lace hole
     ctx.strokeStyle = STITCH_COLORS.yarn;
@@ -158,7 +191,7 @@ function bindStitchEvents() {
         if (!cell) return;
         const r = +cell.dataset.row, c = +cell.dataset.col;
 
-        if (['knit', 'purl', 'k-right', 'k-left', 'hole', 'stitch-erase'].includes(state.activeStitch)) {
+        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'stitch-erase'].includes(state.activeStitch)) {
             e.preventDefault();
             e.stopPropagation();
             applySimpleStitch(r, c);
@@ -181,7 +214,7 @@ function bindStitchEvents() {
         if (!cell) return;
         const r = +cell.dataset.row, c = +cell.dataset.col;
 
-        if (['knit', 'purl', 'k-right', 'k-left', 'hole', 'stitch-erase'].includes(state.activeStitch) && state.isPainting) {
+        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'stitch-erase'].includes(state.activeStitch) && state.isPainting) {
             applySimpleStitch(r, c);
             return;
         }
@@ -253,6 +286,10 @@ function applySimpleStitch(r, c) {
         state.stitchGrid[r][c] = 'k-right';
     } else if (state.activeStitch === 'k-left') {
         state.stitchGrid[r][c] = 'k-left';
+    } else if (state.activeStitch === 'm1r') {
+        state.stitchGrid[r][c] = 'm1r';
+    } else if (state.activeStitch === 'm1l') {
+        state.stitchGrid[r][c] = 'm1l';
     } else if (state.activeStitch === 'hole') {
         state.stitchGrid[r][c] = 'hole';
     }
@@ -485,6 +522,10 @@ function renderStitchOverlay() {
                 drawKLeanOverlay(ctx, x, y, cellW, cellH, 'right');
             } else if (stitch === 'k-left') {
                 drawKLeanOverlay(ctx, x, y, cellW, cellH, 'left');
+            } else if (stitch === 'm1r') {
+                drawM1Overlay(ctx, x, y, cellW, cellH, 'right');
+            } else if (stitch === 'm1l') {
+                drawM1Overlay(ctx, x, y, cellW, cellH, 'left');
             } else if (stitch === 'hole') {
                 drawHoleOverlay(ctx, x, y, cellW, cellH);
             } else if (typeof stitch === 'object' && !drawnCrossings.has(stitch.id)) {
@@ -569,6 +610,26 @@ function drawKLeanOverlay(ctx, x, y, w, h, dir) {
     ctx.lineTo(vs, -vs * 0.6);
     ctx.stroke();
     ctx.restore();
+}
+
+function drawM1Overlay(ctx, x, y, w, h, dir) {
+    const cx = x + w * 0.5, cy = y + h * 0.5;
+    const lw = Math.max(1.5, w * 0.1);
+    const lean = dir === 'right' ? w * 0.08 : -w * 0.08;
+    ctx.lineCap = 'round';
+    // Arrow shaft
+    ctx.strokeStyle = STITCH_COLORS.yarn;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(cx - lean, y + h * 0.82);
+    ctx.lineTo(cx + lean, y + h * 0.22);
+    ctx.stroke();
+    // Arrow head
+    ctx.beginPath();
+    ctx.moveTo(cx + lean - w*0.1, y + h * 0.35);
+    ctx.lineTo(cx + lean, y + h * 0.18);
+    ctx.lineTo(cx + lean + w*0.1, y + h * 0.35);
+    ctx.stroke();
 }
 
 function drawHoleOverlay(ctx, x, y, w, h) {

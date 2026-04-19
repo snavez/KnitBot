@@ -119,6 +119,14 @@ function preparePrint() {
             } else if (stitch === 'k-left') {
                 td.textContent = '\\';
                 td.className = (td.className + ' stitch-cell').trim();
+            } else if (stitch === 'm1r') {
+                td.textContent = 'M1R';
+                td.className = (td.className + ' stitch-cell').trim();
+                td.style.fontSize = '6pt';
+            } else if (stitch === 'm1l') {
+                td.textContent = 'M1L';
+                td.className = (td.className + ' stitch-cell').trim();
+                td.style.fontSize = '6pt';
             } else if (stitch === 'hole') {
                 td.textContent = '\u25CB'; // ○
                 td.className = (td.className + ' stitch-cell').trim();
