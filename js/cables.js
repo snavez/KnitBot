@@ -112,34 +112,44 @@ function drawCrossIcon(ctx, s, dir) {
 }
 
 function drawM1Icon(ctx, x, y, s, dir) {
-    // Upward arrow showing an increase, leaning left or right
-    const cx = x + s * 0.5, cy = y + s * 0.5;
     ctx.lineCap = 'round';
-    // Arrow shaft
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = s * 0.12;
-    const lean = dir === 'right' ? s * 0.1 : -s * 0.1;
-    ctx.beginPath();
-    ctx.moveTo(cx - lean, y + s * 0.8);
-    ctx.lineTo(cx + lean, y + s * 0.25);
-    ctx.stroke();
-    // Arrow head
-    ctx.beginPath();
-    ctx.moveTo(cx + lean - s*0.12, y + s * 0.38);
-    ctx.lineTo(cx + lean, y + s * 0.2);
-    ctx.lineTo(cx + lean + s*0.12, y + s * 0.38);
-    ctx.stroke();
-    // Plus sign
-    ctx.strokeStyle = STITCH_COLORS.yarnDark;
-    ctx.lineWidth = s * 0.07;
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.15, y + s*0.5);
-    ctx.lineTo(x + s*0.3, y + s*0.5);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.225, y + s*0.42);
-    ctx.lineTo(x + s*0.225, y + s*0.58);
-    ctx.stroke();
+    if (dir === 'right') {
+        // /+ : slash on left, plus on right
+        ctx.strokeStyle = STITCH_COLORS.yarn;
+        ctx.lineWidth = s * 0.14;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.15, y + s*0.7);
+        ctx.lineTo(x + s*0.55, y + s*0.2);
+        ctx.stroke();
+        ctx.strokeStyle = STITCH_COLORS.yarnFront;
+        ctx.lineWidth = s * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.6, y + s*0.7);
+        ctx.lineTo(x + s*0.9, y + s*0.7);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.75, y + s*0.57);
+        ctx.lineTo(x + s*0.75, y + s*0.83);
+        ctx.stroke();
+    } else {
+        // +\ : plus on left, slash on right
+        ctx.strokeStyle = STITCH_COLORS.yarnFront;
+        ctx.lineWidth = s * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.1, y + s*0.7);
+        ctx.lineTo(x + s*0.4, y + s*0.7);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.25, y + s*0.57);
+        ctx.lineTo(x + s*0.25, y + s*0.83);
+        ctx.stroke();
+        ctx.strokeStyle = STITCH_COLORS.yarn;
+        ctx.lineWidth = s * 0.14;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.45, y + s*0.2);
+        ctx.lineTo(x + s*0.85, y + s*0.7);
+        ctx.stroke();
+    }
 }
 
 function drawHoleIcon(ctx, x, y, s) {
@@ -157,22 +167,36 @@ function drawHoleIcon(ctx, x, y, s) {
 }
 
 function drawKLeanIcon(ctx, x, y, s, dir) {
-    const cx = x + s * 0.5, cy = y + s * 0.5;
-    const angle = dir === 'right' ? Math.PI / 4 : -Math.PI / 4; // 45 deg
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(angle);
     ctx.lineCap = 'round';
     ctx.strokeStyle = STITCH_COLORS.yarn;
     ctx.lineWidth = s * 0.14;
-    // Smaller V drawn at origin
-    const vs = s * 0.35; // half-size of the V
-    ctx.beginPath();
-    ctx.moveTo(-vs, -vs * 0.6);
-    ctx.lineTo(0, vs * 0.6);
-    ctx.lineTo(vs, -vs * 0.6);
-    ctx.stroke();
-    ctx.restore();
+    if (dir === 'right') {
+        // /- : slash on left, minus on right
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.15, y + s*0.7);
+        ctx.lineTo(x + s*0.55, y + s*0.2);
+        ctx.stroke();
+        ctx.strokeStyle = STITCH_COLORS.yarnFront;
+        ctx.lineWidth = s * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.6, y + s*0.75);
+        ctx.lineTo(x + s*0.9, y + s*0.75);
+        ctx.stroke();
+    } else {
+        // -\ : minus on left, slash on right
+        ctx.strokeStyle = STITCH_COLORS.yarnFront;
+        ctx.lineWidth = s * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.1, y + s*0.75);
+        ctx.lineTo(x + s*0.4, y + s*0.75);
+        ctx.stroke();
+        ctx.strokeStyle = STITCH_COLORS.yarn;
+        ctx.lineWidth = s * 0.14;
+        ctx.beginPath();
+        ctx.moveTo(x + s*0.45, y + s*0.2);
+        ctx.lineTo(x + s*0.85, y + s*0.7);
+        ctx.stroke();
+    }
 }
 
 // ========================================
@@ -594,42 +618,79 @@ function drawPurlOverlay(ctx, x, y, w, h) {
 }
 
 function drawKLeanOverlay(ctx, x, y, w, h, dir) {
-    const cx = x + w * 0.5, cy = y + h * 0.5;
-    const angle = dir === 'right' ? Math.PI / 4 : -Math.PI / 4;
     const lw = Math.max(1.5, w * 0.12);
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(angle);
     ctx.lineCap = 'round';
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = lw;
-    const vs = Math.min(w, h) * 0.3;
-    ctx.beginPath();
-    ctx.moveTo(-vs, -vs * 0.6);
-    ctx.lineTo(0, vs * 0.6);
-    ctx.lineTo(vs, -vs * 0.6);
-    ctx.stroke();
-    ctx.restore();
+    if (dir === 'right') {
+        // /-
+        ctx.strokeStyle = STITCH_COLORS.yarn;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.1, y + h*0.75);
+        ctx.lineTo(x + w*0.5, y + h*0.2);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.lineWidth = Math.max(1, w * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.58, y + h*0.8);
+        ctx.lineTo(x + w*0.88, y + h*0.8);
+        ctx.stroke();
+    } else {
+        // -backslash
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.lineWidth = Math.max(1, w * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.12, y + h*0.8);
+        ctx.lineTo(x + w*0.42, y + h*0.8);
+        ctx.stroke();
+        ctx.strokeStyle = STITCH_COLORS.yarn;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.5, y + h*0.2);
+        ctx.lineTo(x + w*0.9, y + h*0.75);
+        ctx.stroke();
+    }
 }
 
 function drawM1Overlay(ctx, x, y, w, h, dir) {
-    const cx = x + w * 0.5, cy = y + h * 0.5;
-    const lw = Math.max(1.5, w * 0.1);
-    const lean = dir === 'right' ? w * 0.08 : -w * 0.08;
+    const lw = Math.max(1.5, w * 0.12);
     ctx.lineCap = 'round';
-    // Arrow shaft
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    ctx.moveTo(cx - lean, y + h * 0.82);
-    ctx.lineTo(cx + lean, y + h * 0.22);
-    ctx.stroke();
-    // Arrow head
-    ctx.beginPath();
-    ctx.moveTo(cx + lean - w*0.1, y + h * 0.35);
-    ctx.lineTo(cx + lean, y + h * 0.18);
-    ctx.lineTo(cx + lean + w*0.1, y + h * 0.35);
-    ctx.stroke();
+    if (dir === 'right') {
+        // /+
+        ctx.strokeStyle = STITCH_COLORS.yarn;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.1, y + h*0.75);
+        ctx.lineTo(x + w*0.5, y + h*0.2);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.lineWidth = Math.max(1, w * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.58, y + h*0.75);
+        ctx.lineTo(x + w*0.88, y + h*0.75);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.73, y + h*0.62);
+        ctx.lineTo(x + w*0.73, y + h*0.88);
+        ctx.stroke();
+    } else {
+        // +backslash
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.lineWidth = Math.max(1, w * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.12, y + h*0.75);
+        ctx.lineTo(x + w*0.42, y + h*0.75);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.27, y + h*0.62);
+        ctx.lineTo(x + w*0.27, y + h*0.88);
+        ctx.stroke();
+        ctx.strokeStyle = STITCH_COLORS.yarn;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(x + w*0.5, y + h*0.2);
+        ctx.lineTo(x + w*0.9, y + h*0.75);
+        ctx.stroke();
+    }
 }
 
 function drawHoleOverlay(ctx, x, y, w, h) {
