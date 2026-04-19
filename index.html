@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Knitting Pattern Designer</title>
+    <title>KnitBot — Knitting Pattern Designer</title>
     <link rel="stylesheet" href="css/style.css?v=13">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4fc3f7">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
     <header>
@@ -338,5 +341,21 @@
     <script src="js/image.js?v=13"></script>
     <script src="js/cables.js?v=13"></script>
     <script src="js/knit-mode.js?v=1"></script>
+    <script>
+    // Register service worker for offline PWA support
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').then(reg => {
+            // Check for updates periodically
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'activated') {
+                        console.log('KnitBot updated to latest version');
+                    }
+                });
+            });
+        });
+    }
+    </script>
 </body>
 </html>

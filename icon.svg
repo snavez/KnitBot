@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#1a1a2e"/>
+  <g stroke="#4fc3f7" stroke-width="28" stroke-linecap="round" fill="none">
+    <!-- Knit V stitches -->
+    <path d="M 100 140 L 160 260 L 220 140"/>
+    <path d="M 220 140 L 280 260 L 340 140"/>
+    <path d="M 100 280 L 160 400 L 220 280"/>
+    <path d="M 220 280 L 280 400 L 340 280"/>
+    <!-- Cable crossing -->
+    <path d="M 370 140 Q 370 260 440 280" stroke="#7dd3fc"/>
+    <path d="M 440 140 Q 440 260 370 280" stroke="#1a6b8a"/>
+    <!-- Hole -->
+    <circle cx="405" cy="370" r="35" stroke="#4fc3f7" stroke-width="20"/>
+  </g>
+</svg>
