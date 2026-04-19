@@ -16,6 +16,22 @@ let crossIdCounter = 0;
 document.addEventListener('DOMContentLoaded', () => {
     initStitchPalette();
     bindStitchEvents();
+
+    document.getElementById('btn-fill-no-stitch').addEventListener('click', () => {
+        for (let r = 0; r < state.rows; r++) {
+            if (!state.stitchGrid[r]) continue;
+            for (let c = 0; c < state.cols; c++) {
+                const hasColor = !!state.grid[r][c];
+                const hasStitch = !!state.stitchGrid[r][c];
+                if (!hasColor && !hasStitch) {
+                    state.stitchGrid[r][c] = 'no-stitch';
+                }
+            }
+        }
+        renderGrid();
+        pushHistory();
+        showToast('Empty cells filled with No Stitch');
+    });
 });
 
 // ========================================

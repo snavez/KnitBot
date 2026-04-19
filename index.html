@@ -148,9 +148,14 @@
                     <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
                     <span>Hole</span>
                 </div>
-                <div class="stitch-tile" data-stitch="no-stitch" title="No stitch — this cell doesn't exist in the pattern (for shaped knitting)">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>No St</span>
+                <div class="stitch-tile-row">
+                    <div class="stitch-tile" data-stitch="no-stitch" title="No stitch — this cell doesn't exist in the pattern (for shaped knitting)">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <span>No St</span>
+                    </div>
+                    <div class="stitch-tile" id="btn-fill-no-stitch" title="Fill all empty/default cells with No Stitch">
+                        <span style="font-size:0.7rem;color:var(--text-muted);line-height:1.2;text-align:center;">Fill<br>No St</span>
+                    </div>
                 </div>
                 <div class="stitch-tile stitch-tile-erase" data-stitch="stitch-erase" title="Erase stitch type">
                     <span class="stitch-erase-icon">&#x2715;</span>
