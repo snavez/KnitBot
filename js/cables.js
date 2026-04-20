@@ -17,20 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initStitchPalette();
     bindStitchEvents();
 
-    document.getElementById('btn-fill-no-stitch').addEventListener('click', () => {
-        for (let r = 0; r < state.rows; r++) {
-            if (!state.stitchGrid[r]) continue;
-            for (let c = 0; c < state.cols; c++) {
-                const hasColor = !!state.grid[r][c];
-                const hasStitch = !!state.stitchGrid[r][c];
-                if (!hasColor && !hasStitch) {
-                    state.stitchGrid[r][c] = 'no-stitch';
-                }
-            }
-        }
-        renderGrid();
-        pushHistory();
-        showToast('Empty cells filled with No Stitch');
+    // Prevent the checkbox click from also triggering the tile's stitch selection
+    document.getElementById('no-stitch-select-mode').addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 });
 
@@ -304,6 +293,24 @@ function bindStitchEvents() {
 }
 
 function selectStitch(stitch) {
+    // No-stitch: if checkbox is NOT ticked, fill all BG cells immediately
+    if (stitch === 'no-stitch' && !document.getElementById('no-stitch-select-mode').checked) {
+        for (let r = 0; r < state.rows; r++) {
+            if (!state.stitchGrid[r]) continue;
+            for (let c = 0; c < state.cols; c++) {
+                const hasColor = !!state.grid[r][c];
+                const hasStitch = !!state.stitchGrid[r][c];
+                if (!hasColor && !hasStitch) {
+                    state.stitchGrid[r][c] = 'no-stitch';
+                }
+            }
+        }
+        renderGrid();
+        pushHistory();
+        showToast('Empty cells filled with No Stitch');
+        return;
+    }
+
     state.activeStitch = stitch;
     state.activeTool = 'stitch';
     document.querySelectorAll('.stitch-tile').forEach(t => {

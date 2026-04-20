@@ -523,6 +523,29 @@ select {
     border-radius: 3px;
 }
 
+.no-st-sub {
+    font-size: 0.55rem !important;
+    color: var(--text-muted) !important;
+    margin-top: -2px;
+}
+
+.no-st-checkbox {
+    font-size: 0.6rem !important;
+    color: var(--text-muted) !important;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    margin-top: 1px;
+}
+
+.no-st-checkbox input {
+    width: 12px;
+    height: 12px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 .stitch-erase-icon {
     font-size: 1.2rem;
     color: var(--danger);
