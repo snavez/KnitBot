@@ -509,14 +509,14 @@ select {
     background: rgba(79, 195, 247, 0.1);
 }
 
-.stitch-tile span {
+.stitch-tile > span {
     font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-.stitch-tile.active span {
     color: var(--accent);
     font-weight: 600;
+}
+
+.stitch-tile.active > span {
+    color: #fff;
 }
 
 .stitch-tile-canvas {
