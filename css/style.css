@@ -524,13 +524,13 @@ select {
 }
 
 .no-st-sub {
-    font-size: 0.55rem !important;
+    font-size: 0.8rem !important;
     color: var(--text-muted) !important;
     margin-top: -2px;
 }
 
 .no-st-checkbox {
-    font-size: 0.6rem !important;
+    font-size: 0.8rem !important;
     color: var(--text-muted) !important;
     display: flex;
     align-items: center;
