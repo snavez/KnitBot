@@ -6,21 +6,31 @@
 }
 
 :root {
-    --bg: #1a1a2e;
-    --surface: #16213e;
-    --surface-hover: #1a2744;
-    --border: #2a3a5c;
-    --text: #e0e0e0;
-    --text-muted: #8899aa;
-    --accent: #4fc3f7;
-    --accent-hover: #29b6f6;
-    --danger: #ef5350;
+    /* Atelier — warm paper & ink palette */
+    --bg: #f5efe2;
+    --surface: #fbf7ec;
+    --surface-hover: #f0e8d2;
+    --border: #c9bca0;
+    --border-soft: #ddd0b2;
+    --text: #2a211a;
+    --text-muted: #8a7860;
+    --text-soft: #5a4c3e;
+    --accent: #9b2f2a;
+    --accent-hover: #7a2220;
+    --accent-soft: #f0dada;
+    --selection: #6f8a5f;
+    --selection-soft: #e1ead6;
+    --danger: #9b2f2a;
     --cell-size: 22px;
     --cell-gap: 1px;
+    /* Fonts */
+    --serif: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--sans);
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -41,9 +51,11 @@ header {
 }
 
 header h1 {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: var(--accent);
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.3px;
 }
 
 .header-actions {
@@ -54,22 +66,26 @@ header h1 {
 }
 
 .pattern-name-input {
-    background: var(--bg);
+    background: transparent;
     color: var(--text);
-    border: 1px solid var(--border);
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    width: 160px;
+    border: none;
+    border-bottom: 1px dotted var(--border);
+    padding: 4px 6px;
+    font-family: var(--serif);
+    font-size: 0.9rem;
+    font-style: italic;
+    width: 180px;
 }
 
 .pattern-name-input::placeholder {
     color: var(--text-muted);
+    font-style: italic;
 }
 
 .pattern-name-input:focus {
     outline: none;
-    border-color: var(--accent);
+    border-bottom-color: var(--text-soft);
+    border-bottom-style: solid;
 }
 
 /* === Buttons === */
@@ -78,15 +94,16 @@ button {
     color: var(--text);
     border: 1px solid var(--border);
     padding: 6px 14px;
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
+    font-family: var(--sans);
     font-size: 0.85rem;
     transition: background 0.15s, border-color 0.15s;
 }
 
 button:hover {
     background: var(--surface-hover);
-    border-color: var(--accent);
+    border-color: var(--text-soft);
 }
 
 button:active {
@@ -95,13 +112,14 @@ button:active {
 
 button.btn-primary {
     background: var(--accent);
-    color: #111;
+    color: #fff;
     border-color: var(--accent);
     font-weight: 600;
 }
 
 button.btn-primary:hover {
     background: var(--accent-hover);
+    color: #fff;
 }
 
 button:disabled {
@@ -141,13 +159,19 @@ button:disabled {
 }
 
 input[type="number"], select {
-    background: var(--bg);
+    background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border);
     padding: 5px 8px;
-    border-radius: 4px;
+    border-radius: 3px;
     width: 60px;
+    font-family: var(--sans);
     font-size: 0.85rem;
+}
+
+input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: var(--text-soft);
 }
 
 select {
@@ -161,9 +185,9 @@ select {
 }
 
 .tool-btn.active {
-    background: var(--accent);
-    color: #111;
-    border-color: var(--accent);
+    background: var(--text);
+    color: var(--surface);
+    border-color: var(--text);
 }
 
 /* === Color Palette === */
@@ -278,7 +302,7 @@ select {
 }
 
 .row-number.row-ws {
-    color: #8899aa;
+    color: var(--text-muted);
 }
 
 .col-numbers {
@@ -317,7 +341,7 @@ select {
 .grid-container {
     display: grid;
     gap: var(--cell-gap);
-    background: var(--border);
+    background: var(--border-soft);
     border: 1px solid var(--border);
     line-height: 0;
 }
@@ -325,13 +349,13 @@ select {
 .grid-cell {
     width: var(--cell-size);
     height: var(--cell-size);
-    background: var(--bg);
+    background: var(--surface);
     cursor: crosshair;
     transition: background 0.05s;
 }
 
 .grid-cell:hover {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--selection);
     outline-offset: -2px;
     z-index: 1;
 }
@@ -344,7 +368,7 @@ select {
 
 #selection-box {
     position: absolute;
-    border: 2px dashed #4fc3f7;
+    border: 2px dashed var(--selection);
     pointer-events: none;
     z-index: 6;
     border-radius: 2px;
@@ -379,7 +403,7 @@ select {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(42, 33, 26, 0.5);
     z-index: 100;
     justify-content: center;
     align-items: center;
@@ -505,18 +529,19 @@ select {
 }
 
 .stitch-tile.active {
-    border-color: var(--accent);
-    background: rgba(79, 195, 247, 0.1);
+    border-color: var(--selection);
+    background: var(--selection-soft);
 }
 
 .stitch-tile > span {
     font-size: 0.8rem;
-    color: var(--accent);
+    color: var(--text);
     font-weight: 600;
+    font-family: var(--serif);
 }
 
 .stitch-tile.active > span {
-    color: #fff;
+    color: var(--selection-deep, #4f6a42);
 }
 
 .stitch-tile-canvas {
@@ -575,8 +600,8 @@ select {
 
 .drop-zone:hover,
 .drop-zone.drag-over {
-    border-color: var(--accent);
-    background: rgba(79, 195, 247, 0.05);
+    border-color: var(--text-soft);
+    background: var(--surface-hover);
 }
 
 .drop-zone p {

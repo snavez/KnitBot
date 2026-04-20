@@ -3,12 +3,17 @@
 // The chart shows WHAT the fabric looks like, not HOW to make it.
 
 const STITCH_COLORS = {
-    bg: '#1a1a2e',
-    purlBg: '#243352',
-    yarn: '#4fc3f7',
-    yarnDark: '#2980b9',
-    yarnFront: '#7dd3fc',
-    yarnBack: '#1a6b8a',
+    bg: '#fbf7ec',       // warm paper (main background)
+    purlBg: '#fbf7ec',   // same as bg — no tint for purl cells
+    yarn: '#2a211a',     // dark ink (all main stitch lines)
+    yarnDark: '#2a211a', // dark ink (was secondary, now same)
+    yarnFront: '#2a211a',// dark ink (cross front strands now black too)
+    yarnBack: '#c9bca0', // muted paper (back/behind cross strand only)
+    accent: '#2a211a',   // dark ink for +/- marks
+    accentSoft: '#2a211a',
+    ink: 'rgba(42, 33, 26, 0.4)',
+    paperShade: 'rgba(251, 247, 236, 0)',    // transparent — no backdrop for cables
+    purlMark: '#2a211a', // dark ink purl bump
 };
 
 let crossIdCounter = 0;
@@ -67,9 +72,8 @@ function drawKnitIcon(ctx, x, y, s) {
 }
 
 function drawPurlIcon(ctx, x, y, s) {
-    ctx.fillStyle = STITCH_COLORS.purlBg;
-    ctx.fillRect(x, y, s, s);
-    ctx.strokeStyle = 'rgba(79,195,247,0.4)';
+    // No backdrop — just a dark ink bump on the default cream
+    ctx.strokeStyle = STITCH_COLORS.purlMark;
     ctx.lineWidth = s * 0.14;
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -109,12 +113,6 @@ function drawCrossIcon(ctx, s, dir) {
     ctx.moveTo(s * frontFrom, 0);
     ctx.bezierCurveTo(s * frontFrom, s*0.6, s * frontTo, s*0.4, s * frontTo, s);
     ctx.stroke();
-    // Direction label
-    ctx.fillStyle = 'rgba(79,195,247,0.5)';
-    ctx.font = `bold ${s * 0.2}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(dir === 'left' ? 'L' : 'R', s*0.5, s*0.98);
 }
 
 function drawM1Icon(ctx, x, y, s, dir) {
@@ -159,17 +157,14 @@ function drawM1Icon(ctx, x, y, s, dir) {
 }
 
 function drawHoleIcon(ctx, x, y, s) {
-    // Open circle representing a lace hole
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = s * 0.1;
+    // Cream filled circle with black outline
+    ctx.fillStyle = '#ede3cc'; // the old purlBg cream
     ctx.beginPath();
     ctx.arc(x + s*0.5, y + s*0.5, s*0.3, 0, Math.PI * 2);
-    ctx.stroke();
-    // Small dot in center
-    ctx.fillStyle = STITCH_COLORS.yarnDark;
-    ctx.beginPath();
-    ctx.arc(x + s*0.5, y + s*0.5, s*0.06, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = STITCH_COLORS.yarn;
+    ctx.lineWidth = s * 0.1;
+    ctx.stroke();
 }
 
 function drawKLeanIcon(ctx, x, y, s, dir) {
@@ -206,10 +201,10 @@ function drawKLeanIcon(ctx, x, y, s, dir) {
 }
 
 function drawNoStitchIcon(ctx, x, y, s) {
-    // Grey X indicating no stitch exists here
-    ctx.fillStyle = '#2a2a3e';
+    // Muted paper with soft ink X — matches Atelier palette
+    ctx.fillStyle = '#c9bca0';
     ctx.fillRect(x, y, s, s);
-    ctx.strokeStyle = '#555';
+    ctx.strokeStyle = '#5a4c3e';
     ctx.lineWidth = s * 0.08;
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -627,7 +622,7 @@ function drawRowBalanceIndicators(ctx, stepX, stepY, cellW, cellH) {
         ctx.font = `bold ${Math.min(12, cellH * 0.5)}px sans-serif`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.fillStyle = STITCH_COLORS.accent;
         ctx.fillText(`${holes}\u25CB`, x, y); // e.g. "2○"
     }
 }
@@ -651,9 +646,8 @@ function drawKnitOverlay(ctx, x, y, w, h) {
 }
 
 function drawPurlOverlay(ctx, x, y, w, h) {
-    ctx.fillStyle = 'rgba(36, 51, 82, 0.6)';
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = 'rgba(79,195,247,0.4)';
+    // No backdrop — just a dark ink bump
+    ctx.strokeStyle = STITCH_COLORS.purlMark;
     ctx.lineWidth = Math.max(2, w * 0.13);
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -663,10 +657,10 @@ function drawPurlOverlay(ctx, x, y, w, h) {
 }
 
 function drawNoStitchOverlay(ctx, x, y, w, h) {
-    // Dark grey fill with subtle X
-    ctx.fillStyle = 'rgba(30, 30, 45, 0.85)';
+    // Muted paper fill with a soft X
+    ctx.fillStyle = 'rgba(201, 188, 160, 0.7)';
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = 'rgba(100, 100, 120, 0.4)';
+    ctx.strokeStyle = 'rgba(90, 76, 62, 0.5)';
     ctx.lineWidth = Math.max(1, w * 0.06);
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -690,7 +684,7 @@ function drawKLeanOverlay(ctx, x, y, w, h, dir) {
         ctx.moveTo(x + w*0.1, y + h*0.75);
         ctx.lineTo(x + w*0.5, y + h*0.2);
         ctx.stroke();
-        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.strokeStyle = STITCH_COLORS.accent;
         ctx.lineWidth = Math.max(1, w * 0.08);
         ctx.beginPath();
         ctx.moveTo(x + w*0.58, y + h*0.8);
@@ -698,7 +692,7 @@ function drawKLeanOverlay(ctx, x, y, w, h, dir) {
         ctx.stroke();
     } else {
         // -backslash
-        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.strokeStyle = STITCH_COLORS.accent;
         ctx.lineWidth = Math.max(1, w * 0.08);
         ctx.beginPath();
         ctx.moveTo(x + w*0.12, y + h*0.8);
@@ -724,7 +718,7 @@ function drawM1Overlay(ctx, x, y, w, h, dir) {
         ctx.moveTo(x + w*0.1, y + h*0.75);
         ctx.lineTo(x + w*0.5, y + h*0.2);
         ctx.stroke();
-        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.strokeStyle = STITCH_COLORS.accent;
         ctx.lineWidth = Math.max(1, w * 0.08);
         ctx.beginPath();
         ctx.moveTo(x + w*0.58, y + h*0.75);
@@ -736,7 +730,7 @@ function drawM1Overlay(ctx, x, y, w, h, dir) {
         ctx.stroke();
     } else {
         // +backslash
-        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.strokeStyle = STITCH_COLORS.accent;
         ctx.lineWidth = Math.max(1, w * 0.08);
         ctx.beginPath();
         ctx.moveTo(x + w*0.12, y + h*0.75);
@@ -756,13 +750,13 @@ function drawM1Overlay(ctx, x, y, w, h, dir) {
 }
 
 function drawHoleOverlay(ctx, x, y, w, h) {
-    // Filled dark circle with bright ring — stands out clearly among stitches
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    // Cream-filled circle with black outline
+    ctx.fillStyle = '#ede3cc';
     ctx.beginPath();
     ctx.arc(x + w*0.5, y + h*0.5, Math.min(w, h) * 0.35, 0, Math.PI * 2);
     ctx.fill();
     // Subtle ring
-    ctx.strokeStyle = 'rgba(79, 195, 247, 0.35)';
+    ctx.strokeStyle = STITCH_COLORS.accentSoft;
     ctx.lineWidth = Math.max(1.5, w * 0.09);
     ctx.beginPath();
     ctx.arc(x + w*0.5, y + h*0.5, Math.min(w, h) * 0.35, 0, Math.PI * 2);
@@ -778,7 +772,7 @@ function drawHoleOverlay(ctx, x, y, w, h) {
 function drawCrossingOverlay(ctx, ox, oy, cellW, cellH, stitch, gap) {
     const { width, dir, clusters } = stitch;
     const totalW = width * cellW + (width - 1) * gap;
-    ctx.fillStyle = 'rgba(26, 26, 46, 0.7)';
+    ctx.fillStyle = STITCH_COLORS.paperShade;
     ctx.fillRect(ox, oy, totalW, cellH);
 
     const stepX = cellW + gap;
@@ -920,7 +914,7 @@ function drawCrossingOverlay(ctx, ox, oy, cellW, cellH, stitch, gap) {
         if (frontMap[i]) continue;
         const cx = ox + (i + 0.5) * stepX - gap * 0.5;
         if (stitchTypes[i] === 'purl') {
-            ctx.strokeStyle = 'rgba(79,195,247,0.5)';
+            ctx.strokeStyle = STITCH_COLORS.accent;
             ctx.lineWidth = lw * 0.8;
             ctx.beginPath();
             ctx.moveTo(cx - cellW * 0.15, oy + cellH * 0.5);
