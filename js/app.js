@@ -8,11 +8,17 @@ const state = {
     activeTool: 'paint', // 'paint', 'erase', 'fill', 'select', 'stitch'
     activeStitch: null,  // null, 'knit', 'purl', 'left-cross', 'right-cross', 'stitch-erase'
     isPainting: false,
+    // Drag-vs-click detection: the initial cell on mousedown, and whether
+    // we've moved to another cell (= dragging). Drag-mode paints additively
+    // (never toggles off) so sweeping across cells doesn't flicker them.
+    paintStartCell: null,
+    paintDragged: false,
     history: [],
     historyIndex: -1,
     maxHistory: 50,
     patternName: '',
     knittingMode: 'flat', // 'flat' or 'round'
+    firstRow: 'RS', // 'RS' or 'WS' — which side is Row 1 on (flat only)
     customInstructions: null, // user-edited instruction text, saved with pattern
     // Selection / copy-paste
     selection: null,
@@ -25,19 +31,21 @@ const state = {
     cableDragEnd: null,
 };
 
+// Atelier palette — warm, natural, earthy tones.
+// Each hue occupies the same 1:1 slot as the old bright palette.
 const COLORS = [
-    '#e74c3c', // red
-    '#e67e22', // orange
-    '#f1c40f', // yellow
-    '#2ecc71', // green
-    '#1abc9c', // teal
-    '#3498db', // blue
-    '#9b59b6', // purple
-    '#e91e63', // pink
-    '#795548', // brown
-    '#ecf0f1', // white/cream
-    '#2c3e50', // dark navy
-    '#000000', // black
+    '#c8392d', // madder (red)
+    '#c76b2b', // rust (orange)
+    '#d9a441', // ochre (yellow)
+    '#7a8a5a', // sage (green)
+    '#5a8a82', // verdigris (teal)
+    '#4f6e88', // indigo (blue)
+    '#7a5a8a', // heather (purple)
+    '#b85c6e', // rose (pink)
+    '#6b4a2f', // walnut (brown)
+    '#e0d5b0', // cream (deeper oat)
+    '#2a2e3c', // midnight (navy)
+    '#1b1612', // soot (black)
 ];
 
 // === Init ===
@@ -52,10 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // === Palette ===
 function initPalette() {
     const palette = document.getElementById('color-palette');
-    // Keep the label
-    const label = palette.querySelector('label');
     palette.innerHTML = '';
-    palette.appendChild(label);
 
     COLORS.forEach(color => {
         const swatch = document.createElement('div');
@@ -140,59 +145,76 @@ function renderGrid() {
     if (typeof renderStitchOverlay === 'function') {
         renderStitchOverlay();
     }
+    updateStatusBar();
 }
 
 function renderNumbers() {
     const leftNums = document.getElementById('row-numbers-left');
     const rightNums = document.getElementById('row-numbers-right');
-    const colNums = document.getElementById('col-numbers');
+    const colNumsTop = document.getElementById('col-numbers');
+    const colNumsBot = document.getElementById('col-numbers-bottom');
     leftNums.innerHTML = '';
     rightNums.innerHTML = '';
-    colNums.innerHTML = '';
+    colNumsTop.innerHTML = '';
+    if (colNumsBot) colNumsBot.innerHTML = '';
 
     function makeArrow(arrow) {
         return `<span class="row-arrow">${arrow}</span>`;
     }
 
+    // Row number rules:
+    //   In the round — all row numbers on the right, all arrows ◀ (R→L).
+    //   Flat, R1 = RS — odd rows (RS) on RIGHT with ◀; even rows (WS) on LEFT with ▶.
+    //   Flat, R1 = WS — odd rows (WS) on LEFT with ▶; even rows (RS) on RIGHT with ◀.
     for (let r = 0; r < state.rows; r++) {
         const knittingRow = state.rows - r;
-        const isRS = (knittingRow % 2 === 1);
+        const isOdd = (knittingRow % 2 === 1);
 
         const leftEl = document.createElement('div');
         leftEl.className = 'row-number';
         const rightEl = document.createElement('div');
         rightEl.className = 'row-number';
 
-        if (state.knittingMode === 'flat') {
-            // Flat: WS (even) on left with ▶, RS (odd) on right with ◀
-            if (isRS) {
-                leftEl.classList.add('row-hidden');
-                rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
-                rightEl.classList.add('row-rs');
-                rightEl.title = `Row ${knittingRow} (RS) — work right to left`;
-            } else {
-                leftEl.innerHTML = knittingRow + makeArrow('\u25B6');
-                leftEl.classList.add('row-ws');
-                leftEl.title = `Row ${knittingRow} (WS) — work left to right`;
-                rightEl.classList.add('row-hidden');
-            }
-        } else {
-            // In the round: all on right with ◀
+        if (state.knittingMode === 'round') {
+            // In the round: all RS, all on right, all ◀
             leftEl.classList.add('row-hidden');
             rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
             rightEl.classList.add('row-rs');
             rightEl.title = `Rnd ${knittingRow} — work right to left`;
+        } else {
+            // Flat — figure out RS/WS for this row based on firstRow setting
+            const isRS = (state.firstRow === 'RS') ? isOdd : !isOdd;
+            const side = isRS ? 'right' : 'left';
+            if (side === 'right') {
+                leftEl.classList.add('row-hidden');
+                rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
+                rightEl.classList.add(isRS ? 'row-rs' : 'row-ws');
+                rightEl.title = `Row ${knittingRow} (${isRS ? 'RS' : 'WS'}) — work right to left`;
+            } else {
+                leftEl.innerHTML = knittingRow + makeArrow('\u25B6');
+                leftEl.classList.add(isRS ? 'row-rs' : 'row-ws');
+                leftEl.title = `Row ${knittingRow} (${isRS ? 'RS' : 'WS'}) — work left to right`;
+                rightEl.classList.add('row-hidden');
+            }
         }
 
         leftNums.appendChild(leftEl);
         rightNums.appendChild(rightEl);
     }
 
+    // Column numbers — read right-to-left: rightmost cell is column 1, leftmost is column N
     for (let c = 0; c < state.cols; c++) {
-        const el = document.createElement('div');
-        el.className = 'col-number';
-        el.textContent = c + 1;
-        colNums.appendChild(el);
+        const colNumber = state.cols - c; // column N on left, column 1 on right
+        const top = document.createElement('div');
+        top.className = 'col-number';
+        top.textContent = colNumber;
+        colNumsTop.appendChild(top);
+        if (colNumsBot) {
+            const bot = document.createElement('div');
+            bot.className = 'col-number';
+            bot.textContent = colNumber;
+            colNumsBot.appendChild(bot);
+        }
     }
 }
 
@@ -213,6 +235,21 @@ function paintCell(row, col) {
     }
 
     updateCellDOM(row, col);
+}
+
+// Additive paint: used during a drag stroke. Only sets the cell to the active
+// colour (never toggles off) so sweeping across already-painted cells doesn't
+// flicker them. Erase/fill fall through to the toggling paintCell behaviour.
+function paintCellAdditive(row, col) {
+    if (row < 0 || row >= state.rows || col < 0 || col >= state.cols) return;
+    if (state.activeTool === 'erase' || state.activeTool === 'fill') {
+        paintCell(row, col);
+        return;
+    }
+    if (state.grid[row][col] !== state.activeColor) {
+        state.grid[row][col] = state.activeColor;
+        updateCellDOM(row, col);
+    }
 }
 
 function updateCellDOM(row, col) {
@@ -281,6 +318,12 @@ function bindEvents() {
         if (state.activeTool === 'stitch') return;
 
         state.isPainting = true;
+        state.paintStartCell = { r, c };
+        state.paintDragged = false;
+        // First cell still uses toggle semantics — a bare click on an
+        // already-active cell should clear it. If the user then drags, the
+        // move handler promotes this stroke to additive and undoes the toggle
+        // if needed.
         paintCell(r, c);
     });
 
@@ -306,7 +349,25 @@ function bindEvents() {
         if (state.activeTool === 'stitch') return;
 
         if (!state.isPainting || state.activeTool === 'fill') return;
-        paintCell(r, c);
+
+        // Still on the same cell as mousedown — nothing to do yet
+        const start = state.paintStartCell;
+        if (start && r === start.r && c === start.c) return;
+
+        // We've moved to a different cell → this is a drag, not a click.
+        // On the first move, promote the stroke to additive-only and repair
+        // the start cell if the initial toggle cleared it.
+        if (!state.paintDragged && start) {
+            state.paintDragged = true;
+            if (state.activeTool !== 'erase' && state.activeTool !== 'fill') {
+                if (state.grid[start.r][start.c] !== state.activeColor) {
+                    state.grid[start.r][start.c] = state.activeColor;
+                    updateCellDOM(start.r, start.c);
+                }
+            }
+        }
+
+        paintCellAdditive(r, c);
     });
 
     document.addEventListener('mouseup', () => {
@@ -318,6 +379,8 @@ function bindEvents() {
         }
         if (state.isPainting) {
             state.isPainting = false;
+            state.paintStartCell = null;
+            state.paintDragged = false;
             pushHistory();
         }
     });
@@ -333,14 +396,17 @@ function bindEvents() {
         pushHistory();
     });
 
-    // Touch support
+    // Touch support — mirrors the mouse tap/drag logic so a sweep only paints.
     container.addEventListener('touchstart', (e) => {
         const touch = e.touches[0];
         const cell = document.elementFromPoint(touch.clientX, touch.clientY);
         if (!cell || !cell.classList.contains('grid-cell')) return;
         e.preventDefault();
+        const r = +cell.dataset.row, c = +cell.dataset.col;
         state.isPainting = true;
-        paintCell(+cell.dataset.row, +cell.dataset.col);
+        state.paintStartCell = { r, c };
+        state.paintDragged = false;
+        paintCell(r, c);
     }, { passive: false });
 
     container.addEventListener('touchmove', (e) => {
@@ -349,12 +415,29 @@ function bindEvents() {
         const cell = document.elementFromPoint(touch.clientX, touch.clientY);
         if (!cell || !cell.classList.contains('grid-cell')) return;
         e.preventDefault();
-        paintCell(+cell.dataset.row, +cell.dataset.col);
+        const r = +cell.dataset.row, c = +cell.dataset.col;
+
+        const start = state.paintStartCell;
+        if (start && r === start.r && c === start.c) return;
+
+        if (!state.paintDragged && start) {
+            state.paintDragged = true;
+            if (state.activeTool !== 'erase' && state.activeTool !== 'fill') {
+                if (state.grid[start.r][start.c] !== state.activeColor) {
+                    state.grid[start.r][start.c] = state.activeColor;
+                    updateCellDOM(start.r, start.c);
+                }
+            }
+        }
+
+        paintCellAdditive(r, c);
     }, { passive: false });
 
     container.addEventListener('touchend', () => {
         if (state.isPainting) {
             state.isPainting = false;
+            state.paintStartCell = null;
+            state.paintDragged = false;
             pushHistory();
         }
     });
@@ -362,8 +445,21 @@ function bindEvents() {
     // Knitting mode toggle
     document.getElementById('knitting-mode').addEventListener('change', (e) => {
         state.knittingMode = e.target.value;
+        updateFirstRowPickerVisibility();
         renderNumbers();
+        updateStatusBar();
     });
+
+    // R1 RS/WS picker (flat mode only)
+    document.querySelectorAll('input[name="first-row"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                state.firstRow = e.target.value;
+                renderNumbers();
+            }
+        });
+    });
+    updateFirstRowPickerVisibility();
 
     // Toolbar buttons
     document.getElementById('btn-resize').addEventListener('click', () => {
@@ -466,6 +562,7 @@ function pushHistory() {
     }
     state.historyIndex = state.history.length - 1;
     updateUndoRedoButtons();
+    updateStatusBar();
 }
 
 function undo() {
@@ -514,15 +611,21 @@ function restorePatternData(data) {
     state.stitchGrid = data.stitchGrid || initEmptyStitchGrid(data.rows, data.cols);
     state.patternName = data.name || '';
     state.knittingMode = data.knittingMode || 'flat';
+    state.firstRow = data.firstRow || 'RS';
     state.customInstructions = data.customInstructions || null;
     document.getElementById('grid-rows').value = state.rows;
     document.getElementById('grid-cols').value = state.cols;
     document.getElementById('pattern-name').value = state.patternName;
     document.getElementById('knitting-mode').value = state.knittingMode;
+    // Restore R1 radio
+    const firstRowRadio = document.querySelector(`input[name="first-row"][value="${state.firstRow}"]`);
+    if (firstRowRadio) firstRowRadio.checked = true;
+    updateFirstRowPickerVisibility();
     renderGrid();
     state.history = [];
     state.historyIndex = -1;
     pushHistory();
+    markSaved();
 }
 
 function saveToFile() {
@@ -536,6 +639,7 @@ function saveToFile() {
         grid: state.grid,
         stitchGrid: state.stitchGrid,
         knittingMode: state.knittingMode,
+        firstRow: state.firstRow,
         customInstructions: state.customInstructions,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -546,6 +650,66 @@ function saveToFile() {
     a.click();
     URL.revokeObjectURL(url);
     showToast(`Saved "${name}"`);
+    markSaved();
+}
+
+// === Masthead saved-status indicator ===
+let lastSavedAt = null;
+function markSaved() {
+    lastSavedAt = Date.now();
+    updateSavedLabel();
+}
+function updateSavedLabel() {
+    const el = document.getElementById('masthead-saved');
+    if (!el) return;
+    if (!lastSavedAt) {
+        el.textContent = 'Unsaved';
+        el.classList.add('unsaved');
+        return;
+    }
+    const mins = Math.floor((Date.now() - lastSavedAt) / 60000);
+    el.classList.remove('unsaved');
+    if (mins < 1) el.textContent = 'Saved · just now';
+    else if (mins === 1) el.textContent = 'Saved · 1m ago';
+    else if (mins < 60) el.textContent = `Saved · ${mins}m ago`;
+    else {
+        const hrs = Math.floor(mins / 60);
+        el.textContent = `Saved · ${hrs}h ago`;
+    }
+}
+// Update the "Saved Xm ago" label every 30s
+setInterval(updateSavedLabel, 30000);
+
+function updateFirstRowPickerVisibility() {
+    const picker = document.getElementById('first-row-picker');
+    if (!picker) return;
+    picker.classList.toggle('hidden', state.knittingMode !== 'flat');
+}
+
+// === Status Bar ===
+function updateStatusBar() {
+    const stitchesEl = document.getElementById('status-stitches');
+    const coloursEl = document.getElementById('status-colours');
+    const modeEl = document.getElementById('status-mode');
+    if (!stitchesEl) return;
+
+    // Count "active" stitches (cells that aren't no-stitch and have either colour or stitch data)
+    let active = 0;
+    const coloursSet = new Set();
+    for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+            const stitch = state.stitchGrid[r] ? state.stitchGrid[r][c] : null;
+            if (stitch === 'no-stitch') continue;
+            const color = state.grid[r][c];
+            if (color !== null || stitch) active++;
+            if (color) coloursSet.add(color);
+        }
+    }
+
+    stitchesEl.textContent = `${active} stitch${active === 1 ? '' : 'es'}`;
+    const cn = coloursSet.size;
+    coloursEl.textContent = `${cn} colour${cn === 1 ? '' : 's'}`;
+    modeEl.textContent = state.knittingMode === 'round' ? 'in the round' : 'flat';
 }
 
 function loadFromFile() {
@@ -708,9 +872,11 @@ function renderSelectionOverlay() {
 
     box = document.createElement('div');
     box.id = 'selection-box';
+    // Dark-ink dashed outline with a soft cream shadow — pops against any cell colour
     box.style.cssText = `
         position: absolute;
-        border: 2px dashed #4fc3f7;
+        border: 2px dashed #2a211a;
+        box-shadow: 0 0 0 1px rgba(251, 247, 236, 0.9);
         pointer-events: none;
         z-index: 6;
         border-radius: 2px;

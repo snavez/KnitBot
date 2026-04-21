@@ -7,28 +7,48 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=17">
+    <link rel="stylesheet" href="css/style.css?v=34">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4fc3f7">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
-    <header>
-        <h1>Knitwork</h1>
-        <div class="header-actions">
-            <input type="text" id="pattern-name" placeholder="Pattern name..." title="Name your pattern" class="pattern-name-input">
-            <button id="btn-save" title="Save to file (Ctrl+S)">Save</button>
-            <button id="btn-load" title="Load from file">Load</button>
-            <button id="btn-clear" title="Clear grid">Clear</button>
-            <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
-            <button id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
-            <button id="btn-random" title="Generate a random pattern">Random</button>
-            <button id="btn-image" title="Import image as pattern">Image</button>
-            <button id="btn-preview" class="btn-primary" title="Preview repeating pattern">Preview</button>
-            <button id="btn-instructions" title="Export knitting instructions &amp; print">Instructions</button>
-            <button id="btn-knit" title="Active knitting mode — follow along row by row">Knit!</button>
+    <header class="masthead">
+        <div class="masthead-brand">
+            <svg class="masthead-mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true">
+                <circle cx="16" cy="16" r="15" fill="none" stroke="#2a211a" stroke-width="1.2"></circle>
+                <path d="M 9 10 L 16 20 L 23 10" fill="none" stroke="#2a211a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                <line x1="12" y1="23" x2="20" y2="23" stroke="#9b2f2a" stroke-width="1.6" stroke-linecap="round"></line>
+            </svg>
+            <h1>Knitwork</h1>
+            <span class="masthead-subtitle">A knitter's workbook</span>
+        </div>
+        <div class="masthead-meta">
+            <input type="text" id="pattern-name" placeholder="Pattern name…" title="Name your pattern" class="pattern-name-input">
+            <span class="masthead-saved" id="masthead-saved">Unsaved</span>
         </div>
     </header>
+
+    <nav class="tab-strip">
+        <div class="tabs">
+            <button class="tab active" data-tab="design">
+                <span class="tab-num">01</span>
+                <span class="tab-label">Design</span>
+            </button>
+            <button class="tab" data-tab="refine">
+                <span class="tab-num">02</span>
+                <span class="tab-label">Refine Instructions</span>
+            </button>
+            <button class="tab" data-tab="knit">
+                <span class="tab-num">03</span>
+                <span class="tab-label">Knit</span>
+            </button>
+        </div>
+        <div class="tab-actions">
+            <button id="btn-save" class="tab-link-btn" title="Save to file (Ctrl+S)">Save</button>
+            <button id="btn-load" class="tab-link-btn" title="Load from file">Load</button>
+        </div>
+    </nav>
 
     <!-- Active Knitting Overlay -->
     <div id="knit-overlay" class="knit-overlay" style="display:none;">
@@ -67,106 +87,255 @@
         </div>
     </div>
 
-    <main>
-        <section class="toolbar">
-            <div class="tool-group">
-                <label>Mode:</label>
-                <select id="knitting-mode">
-                    <option value="flat">Flat</option>
-                    <option value="round">In the round</option>
-                </select>
+    <main class="workbench">
+        <!-- LEFT PANEL: History · Stitches · Palette · Tool -->
+        <aside class="panel panel-left">
+            <!-- History (Undo / Redo / Clear grid) -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">History</span>
+                    <span class="panel-section-hint">Ctrl+Z / Ctrl+Y</span>
+                </div>
+                <div class="panel-row panel-row-two">
+                    <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
+                    <button id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-clear" title="Clear grid" class="panel-btn-wide">Clear grid</button>
+                </div>
             </div>
-            <div class="tool-group">
-                <label>Grid:</label>
-                <span class="input-label">H</span>
-                <input type="number" id="grid-rows" min="2" max="80" value="20" title="Height (rows)">
-                <span>x</span>
-                <span class="input-label">W</span>
-                <input type="number" id="grid-cols" min="2" max="80" value="20" title="Width (stitches)">
-                <button id="btn-resize">Resize</button>
-            </div>
-            <div class="tool-group color-palette" id="color-palette">
-                <label>Colours:</label>
-                <!-- Colors injected by JS -->
-            </div>
-            <div class="tool-group">
-                <label>Tool:</label>
-                <button id="tool-paint" class="tool-btn active" title="Paint (left-click)">Paint</button>
-                <button id="tool-erase" class="tool-btn" title="Erase">Erase</button>
-                <button id="tool-fill" class="tool-btn" title="Fill region">Fill</button>
-                <button id="tool-select" class="tool-btn" title="Select region">Select</button>
-            </div>
-            <div class="tool-group selection-actions" id="selection-actions" style="display:none;">
-                <button id="btn-copy" title="Copy (Ctrl+C)">Copy</button>
-                <button id="btn-cut" title="Cut (Ctrl+X)">Cut</button>
-                <button id="btn-paste" title="Paste (Ctrl+V)">Paste</button>
-                <button id="btn-deselect" title="Deselect (Esc)">Deselect</button>
-            </div>
-        </section>
 
-        <section class="editor-area">
+            <!-- Stitches -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">Stitches</span>
+                    <span class="panel-section-hint">click to select</span>
+                </div>
+                <div class="stitch-palette" id="stitch-palette">
+                    <div class="stitch-tile" data-stitch="knit" title="Knit stitch">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">Knit</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="purl" title="Purl stitch">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">Purl</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="left-cross" title="Left Cross — select cells, then click to apply. Reads K/P from row below to determine crossing.">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">Left X</span>
+                            <span class="stitch-label-sub">CF</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="right-cross" title="Right Cross — select cells, then click to apply. Reads K/P from row below to determine crossing.">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">Right X</span>
+                            <span class="stitch-label-sub">CB</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="k-right" title="Knit 2 together — right-leaning decrease">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">K2tog</span>
+                            <span class="stitch-label-sub">dec 1</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="k-left" title="Slip slip knit — left-leaning decrease">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">SSK</span>
+                            <span class="stitch-label-sub">dec 1</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="m1r" title="Make 1 Right — invisible right-leaning increase">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">M1R</span>
+                            <span class="stitch-label-sub">inc 1</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="m1l" title="Make 1 Left — invisible left-leaning increase">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">M1L</span>
+                            <span class="stitch-label-sub">inc 1</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="hole" title="Lace hole — becomes YO in instructions">
+                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">Hole</span>
+                            <span class="stitch-label-sub">YO</span>
+                        </div>
+                    </div>
+                    <div class="stitch-tile" data-stitch="no-stitch" title="No stitch — click to fill all empty cells, or tick 'Select' to place individually">
+                        <div class="no-st-top">
+                            <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
+                            <div class="stitch-labels">
+                                <span class="stitch-label-main">No St</span>
+                                <span class="stitch-label-sub">(All BG)</span>
+                            </div>
+                        </div>
+                        <label class="no-st-checkbox" title="Tick to place No Stitch on individual cells"><input type="checkbox" id="no-stitch-select-mode"> Select Cells</label>
+                    </div>
+                    <div class="stitch-tile stitch-tile-erase" data-stitch="stitch-erase" title="Erase stitch type">
+                        <span class="stitch-erase-icon">&#x2715;</span>
+                        <div class="stitch-labels">
+                            <span class="stitch-label-main">Erase</span>
+                            <span class="stitch-label-sub">Stitch type</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Palette -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">Palette</span>
+                    <span class="panel-section-hint">12 colours</span>
+                </div>
+                <div class="color-palette" id="color-palette">
+                    <!-- Colors injected by JS -->
+                </div>
+            </div>
+
+            <!-- Tool -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">Tool</span>
+                </div>
+                <div class="panel-row panel-row-two">
+                    <button id="tool-paint" class="tool-btn active" title="Paint (left-click)">Paint</button>
+                    <button id="tool-erase" class="tool-btn" title="Erase">Erase</button>
+                </div>
+                <div class="panel-row panel-row-two">
+                    <button id="tool-fill" class="tool-btn" title="Fill region">Fill</button>
+                    <button id="tool-select" class="tool-btn" title="Select region">Select</button>
+                </div>
+                <div class="selection-actions" id="selection-actions" style="display:none;">
+                    <div class="selection-actions-label">Selection active</div>
+                    <div class="selection-actions-buttons">
+                        <button id="btn-copy" title="Copy (Ctrl+C)">Copy</button>
+                        <button id="btn-cut" title="Cut (Ctrl+X)">Cut</button>
+                        <button id="btn-paste" title="Paste (Ctrl+V)">Paste</button>
+                        <button id="btn-deselect" title="Deselect (Esc)">Deselect</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTRE: the chart -->
+        <section class="canvas-area">
             <div class="grid-wrapper">
                 <div class="row-numbers row-numbers-left" id="row-numbers-left"></div>
                 <div class="grid-col-wrapper">
-                    <div class="col-numbers" id="col-numbers"></div>
+                    <div class="col-numbers col-numbers-top" id="col-numbers"></div>
                     <div class="grid-canvas-wrapper">
                         <div class="grid-container" id="grid-container"></div>
                         <canvas id="stitch-overlay" class="stitch-overlay"></canvas>
                     </div>
+                    <div class="col-numbers col-numbers-bottom" id="col-numbers-bottom"></div>
                 </div>
                 <div class="row-numbers row-numbers-right" id="row-numbers-right"></div>
             </div>
-            <aside class="stitch-palette" id="stitch-palette">
-                <h3>Stitches</h3>
-                <div class="stitch-tile" data-stitch="knit" title="Knit stitch">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>Knit</span>
-                </div>
-                <div class="stitch-tile" data-stitch="purl" title="Purl stitch">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>Purl</span>
-                </div>
-                <div class="stitch-tile" data-stitch="left-cross" title="Left Cross — click &amp; drag across cells. Reads K/P from row below to determine crossing.">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>Left X</span>
-                </div>
-                <div class="stitch-tile" data-stitch="right-cross" title="Right Cross — click &amp; drag across cells. Reads K/P from row below to determine crossing.">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>Right X</span>
-                </div>
-                <div class="stitch-tile" data-stitch="k-right" title="Knit 2 together — right-leaning decrease">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>K2tog</span>
-                </div>
-                <div class="stitch-tile" data-stitch="k-left" title="Slip slip knit — left-leaning decrease">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>SSK</span>
-                </div>
-                <div class="stitch-tile" data-stitch="m1r" title="Make 1 Right — invisible right-leaning increase">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>M1R</span>
-                </div>
-                <div class="stitch-tile" data-stitch="m1l" title="Make 1 Left — invisible left-leaning increase">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>M1L</span>
-                </div>
-                <div class="stitch-tile" data-stitch="hole" title="Lace hole — becomes YO in instructions">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>Hole</span>
-                </div>
-                <div class="stitch-tile" data-stitch="no-stitch" title="No stitch — click to fill all empty cells, or tick 'Select' to place individually">
-                    <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                    <span>No St</span>
-                    <span class="no-st-sub">(All BG)</span>
-                    <label class="no-st-checkbox" title="Tick to place No Stitch on individual cells"><input type="checkbox" id="no-stitch-select-mode"> Select Cells</label>
-                </div>
-                <div class="stitch-tile stitch-tile-erase" data-stitch="stitch-erase" title="Erase stitch type">
-                    <span class="stitch-erase-icon">&#x2715;</span>
-                    <span>Erase</span>
-                </div>
-            </aside>
         </section>
+
+        <!-- RIGHT PANEL: Dimensions · Mode · Generate · Output -->
+        <aside class="panel panel-right">
+            <!-- Dimensions -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">Dimensions</span>
+                </div>
+                <div class="dimensions-grid">
+                    <div class="dimension-field">
+                        <div class="dimension-label">Height</div>
+                        <input type="number" id="grid-rows" min="2" max="80" value="20" title="Height (rows)">
+                        <div class="dimension-suffix">rows</div>
+                    </div>
+                    <div class="dimension-field">
+                        <div class="dimension-label">Width</div>
+                        <input type="number" id="grid-cols" min="2" max="80" value="20" title="Width (stitches)">
+                        <div class="dimension-suffix">sts</div>
+                    </div>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-resize" class="panel-btn-wide">Resize</button>
+                </div>
+            </div>
+
+            <!-- Mode -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">Mode</span>
+                </div>
+                <select id="knitting-mode" class="panel-select">
+                    <option value="flat">Flat</option>
+                    <option value="round">In the round</option>
+                </select>
+                <div id="first-row-picker" class="first-row-picker">
+                    <div class="first-row-label">Row 1 is on the</div>
+                    <div class="first-row-options">
+                        <label class="first-row-option">
+                            <input type="radio" name="first-row" value="RS" checked>
+                            <span class="first-row-dot"></span>
+                            <span class="first-row-name">Right side</span>
+                            <span class="first-row-code">RS</span>
+                        </label>
+                        <label class="first-row-option">
+                            <input type="radio" name="first-row" value="WS">
+                            <span class="first-row-dot"></span>
+                            <span class="first-row-name">Wrong side</span>
+                            <span class="first-row-code">WS</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">Generate</span>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-random" class="panel-btn-wide" title="Generate a random pattern">Random pattern</button>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-image" class="panel-btn-wide" title="Import image as pattern">From image</button>
+                </div>
+            </div>
+
+            <!-- Output -->
+            <div class="panel-section">
+                <div class="panel-section-head">
+                    <span class="panel-section-title">Output</span>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-preview" class="panel-btn-wide" title="Preview repeating pattern">Preview pattern</button>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-instructions" class="panel-btn-wide" title="Export knitting instructions &amp; print">Instructions</button>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-knit" class="panel-btn-wide" title="Active knitting mode — follow along row by row">Knit mode</button>
+                </div>
+            </div>
+        </aside>
     </main>
+
+    <footer class="status-bar">
+        <span id="status-stitches">— stitches</span>
+        <span class="status-sep">·</span>
+        <span id="status-colours">— colours</span>
+        <span class="status-sep">·</span>
+        <span id="status-mode">flat</span>
+        <span class="status-autosave">● Autosave off</span>
+    </footer>
 
     <!-- Preview Modal -->
     <div class="modal-overlay" id="preview-modal">
@@ -333,14 +502,15 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/app.js?v=17"></script>
-    <script src="js/preview.js?v=17"></script>
-    <script src="js/print.js?v=17"></script>
-    <script src="js/instructions.js?v=17"></script>
-    <script src="js/random.js?v=17"></script>
-    <script src="js/image.js?v=17"></script>
-    <script src="js/cables.js?v=17"></script>
-    <script src="js/knit-mode.js?v=1"></script>
+    <script src="js/app.js?v=34"></script>
+    <script src="js/preview.js?v=34"></script>
+    <script src="js/print.js?v=34"></script>
+    <script src="js/instructions.js?v=34"></script>
+    <script src="js/random.js?v=34"></script>
+    <script src="js/image.js?v=34"></script>
+    <script src="js/cables.js?v=34"></script>
+    <script src="js/knit-mode.js?v=34"></script>
+    <script src="js/tabs.js?v=34"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {

@@ -78,6 +78,7 @@ function enterKnitMode() {
     }
 
     document.getElementById('knit-overlay').style.display = 'block';
+    document.body.classList.add('knit-active');
     updateKnitDisplay();
     showToast('Knitting mode! Use arrow keys or buttons to navigate rows.');
 }
@@ -87,6 +88,7 @@ function exitKnitMode() {
     knitState.fullscreen = false;
     document.getElementById('knit-overlay').style.display = 'none';
     document.getElementById('knit-fullscreen-view').style.display = 'none';
+    document.body.classList.remove('knit-active');
     clearKnitHighlight();
 }
 
@@ -119,7 +121,9 @@ function toggleFullscreen() {
 function updateKnitDisplay() {
     const kRow = knitState.currentKnitRow;
     const isFlat = state.knittingMode === 'flat';
-    const isRS = (kRow % 2 === 1);
+    const r1IsWS = (state.firstRow === 'WS');
+    const isOdd = (kRow % 2 === 1);
+    const isRS = isFlat ? (r1IsWS ? !isOdd : isOdd) : true;
 
     let rowLabel, directionText;
     if (isFlat) {
@@ -135,10 +139,11 @@ function updateKnitDisplay() {
     const instruction = knitState.instructions[kRow - 1] || '';
     const progress = `${kRow} / ${knitState.totalRows}`;
 
-    // Update bar overlay
+    // Update bar overlay — instruction beside row label on the top bar,
+    // working direction in the strip below
     document.getElementById('knit-row-label').textContent = rowLabel;
-    document.getElementById('knit-direction').textContent = directionText;
-    document.getElementById('knit-instruction').textContent = instruction;
+    document.getElementById('knit-direction').textContent = instruction;
+    document.getElementById('knit-instruction').textContent = directionText;
 
     // Update fullscreen view
     document.getElementById('knit-fs-row').textContent = rowLabel;
@@ -166,6 +171,9 @@ function highlightKnitRow(kRow) {
         if (cell) cell.classList.add('knit-active-row');
     }
 
+    // Position the full-width red highlight bar that extends past the grid edges
+    positionKnitRowBar(gridRow);
+
     // Scroll the row into view
     const firstCell = container.children[gridRow * state.cols];
     if (firstCell) {
@@ -173,8 +181,36 @@ function highlightKnitRow(kRow) {
     }
 }
 
+function positionKnitRowBar(gridRow) {
+    const wrapper = document.querySelector('.grid-wrapper');
+    const container = document.getElementById('grid-container');
+    if (!wrapper || !container) return;
+
+    // Ensure the bar exists
+    let bar = document.getElementById('knit-row-bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'knit-row-bar';
+        bar.className = 'knit-row-bar';
+        wrapper.appendChild(bar);
+    }
+
+    const firstCell = container.children[gridRow * state.cols];
+    if (!firstCell) { bar.classList.remove('visible'); return; }
+
+    const wrapRect = wrapper.getBoundingClientRect();
+    const cellRect = firstCell.getBoundingClientRect();
+    const top = cellRect.top - wrapRect.top;
+    const height = cellRect.height;
+    bar.style.top = `${top}px`;
+    bar.style.height = `${height}px`;
+    bar.classList.add('visible');
+}
+
 function clearKnitHighlight() {
     document.querySelectorAll('.knit-active-row').forEach(el => {
         el.classList.remove('knit-active-row');
     });
+    const bar = document.getElementById('knit-row-bar');
+    if (bar) bar.classList.remove('visible');
 }

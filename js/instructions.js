@@ -1,18 +1,18 @@
 // === Knitting Instructions Generator ===
 
 const COLOR_NAMES = {
-    '#e74c3c': 'red',
-    '#e67e22': 'orange',
-    '#f1c40f': 'yellow',
-    '#2ecc71': 'green',
-    '#1abc9c': 'teal',
-    '#3498db': 'blue',
-    '#9b59b6': 'purple',
-    '#e91e63': 'pink',
-    '#795548': 'brown',
-    '#ecf0f1': 'cream',
-    '#2c3e50': 'dark navy',
-    '#000000': 'black',
+    '#c8392d': 'madder',
+    '#c76b2b': 'rust',
+    '#d9a441': 'ochre',
+    '#7a8a5a': 'sage',
+    '#5a8a82': 'verdigris',
+    '#4f6e88': 'indigo',
+    '#7a5a8a': 'heather',
+    '#b85c6e': 'rose',
+    '#6b4a2f': 'walnut',
+    '#e0d5b0': 'cream',
+    '#2a2e3c': 'midnight',
+    '#1b1612': 'soot',
 };
 
 const NAMED_COLORS = [
@@ -196,11 +196,15 @@ function formatInstructionsText(pattern, mode) {
     // Instructions
     text += 'Instructions:\n';
 
+    // R1 can be either RS or WS in flat knitting — affects the side of every row
+    const r1IsWS = (state.firstRow === 'WS');
+
     for (let knittingRow = 1; knittingRow <= patRows; knittingRow++) {
         const arrayRow = patRows - knittingRow;
 
         if (isFlat) {
-            const isRS = (knittingRow % 2 === 1);
+            const isOdd = (knittingRow % 2 === 1);
+            const isRS = r1IsWS ? !isOdd : isOdd;
             const defaultSt = isRS ? 'K' : 'P';
             const side = isRS ? 'RS' : 'WS';
 

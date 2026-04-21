@@ -17,9 +17,9 @@ function renderPreview() {
     if (!pattern) {
         canvas.width = 400;
         canvas.height = 200;
-        ctx.fillStyle = '#1a1a2e';
+        ctx.fillStyle = '#fbf7ec';
         ctx.fillRect(0, 0, 400, 200);
-        ctx.fillStyle = '#8899aa';
+        ctx.fillStyle = '#8a7860';
         ctx.font = '16px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('No pattern to preview. Paint some cells first!', 200, 100);
@@ -53,7 +53,7 @@ function renderPreview() {
     canvas.height = canvasH;
 
     // Fill background
-    ctx.fillStyle = '#1a1a2e';
+    ctx.fillStyle = '#fbf7ec';
     ctx.fillRect(0, 0, canvasW, canvasH);
 
     // Draw tiled pattern
@@ -68,7 +68,7 @@ function renderPreview() {
                     if (color) {
                         ctx.fillStyle = color;
                     } else {
-                        ctx.fillStyle = '#1a1a2e';
+                        ctx.fillStyle = '#fbf7ec';
                     }
                     ctx.fillRect(
                         offsetX + c * cellSize,
@@ -80,7 +80,7 @@ function renderPreview() {
             }
 
             // Draw subtle tile boundary
-            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.strokeStyle = 'rgba(42,33,26,0.18)';
             ctx.lineWidth = 1;
             ctx.strokeRect(offsetX, offsetY, patCols * cellSize, patRows * cellSize);
         }
@@ -88,7 +88,7 @@ function renderPreview() {
 
     // Draw grid lines if cells are big enough
     if (cellSize >= 8) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.strokeStyle = 'rgba(42,33,26,0.08)';
         ctx.lineWidth = 0.5;
         for (let y = 0; y <= canvasH; y += cellSize) {
             ctx.beginPath();

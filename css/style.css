@@ -33,36 +33,176 @@ body {
     font-family: var(--sans);
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
-/* === Header === */
-header {
+/* === Masthead === */
+.masthead {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    padding: 12px 20px;
+    padding: 16px 32px 14px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.masthead-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.masthead-mark {
+    flex-shrink: 0;
+    transform: translateY(2px);
+}
+
+.masthead h1 {
+    font-family: var(--serif);
+    font-size: 1.55rem;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.4px;
+    line-height: 1;
+}
+
+.masthead-subtitle {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding-left: 4px;
+}
+
+.masthead-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+}
+
+.masthead-saved {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--selection);
+    white-space: nowrap;
+}
+
+.masthead-saved.unsaved {
+    color: var(--text-muted);
+}
+
+/* === Status Bar (thin strip at bottom of workbench) === */
+.status-bar {
+    flex-shrink: 0;
+    padding: 6px 32px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.status-sep {
+    color: var(--border);
+}
+
+.status-autosave {
+    margin-left: auto;
+    color: var(--text-muted);
+}
+
+/* === Tab Strip (journey navigation) === */
+.tab-strip {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
+    padding: 0 32px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
-header h1 {
-    font-family: var(--serif);
-    font-size: 1.4rem;
-    font-weight: 500;
-    color: var(--text);
-    letter-spacing: -0.3px;
-}
-
-.header-actions {
+.tabs {
     display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
+}
+
+.tab {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 12px 22px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: var(--serif);
+    font-size: 0.95rem;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+    color: var(--text-soft);
+    background: transparent;
+    border-bottom-color: var(--border-soft);
+}
+
+.tab.active {
+    color: var(--text);
+    border-bottom-color: var(--selection);
+}
+
+.tab-num {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.tab.active .tab-num {
+    color: var(--selection);
+}
+
+.tab-label {
+    font-style: italic;
+}
+
+.tab-actions {
+    display: flex;
     align-items: center;
+    gap: 16px;
+}
+
+.tab-link-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dotted var(--border);
+    border-radius: 0;
+    padding: 2px 2px 1px;
+    font-family: var(--serif);
+    font-size: 0.8rem;
+    color: var(--text-soft);
+    cursor: pointer;
+}
+
+.tab-link-btn:hover {
+    color: var(--text);
+    background: transparent;
+    border-bottom-color: var(--text-soft);
+    border-bottom-style: solid;
 }
 
 .pattern-name-input {
@@ -90,7 +230,7 @@ header h1 {
 
 /* === Buttons === */
 button {
-    background: var(--surface);
+    background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
     padding: 6px 14px;
@@ -159,7 +299,7 @@ button:disabled {
 }
 
 input[type="number"], select {
-    background: var(--surface);
+    background: var(--bg);
     color: var(--text);
     border: 1px solid var(--border);
     padding: 5px 8px;
@@ -192,33 +332,36 @@ select {
 
 /* === Color Palette === */
 .color-palette {
+    display: flex;
     flex-wrap: wrap;
+    gap: 6px;
 }
 
 .color-swatch {
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    border: 2px solid transparent;
+    width: 26px;
+    height: 26px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    box-sizing: border-box;
     cursor: pointer;
-    transition: border-color 0.15s, transform 0.1s;
+    transition: transform 0.1s, box-shadow 0.15s;
     position: relative;
 }
 
 .color-swatch:hover {
-    transform: scale(1.15);
+    transform: scale(1.12);
 }
 
 .color-swatch.active {
-    border-color: #fff;
-    box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+    border-color: var(--text);
+    box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 3px var(--text);
 }
 
 .color-swatch-custom {
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    border: 2px dashed var(--border);
+    width: 26px;
+    height: 26px;
+    border-radius: 3px;
+    border: 1px dashed var(--border);
     cursor: pointer;
     background: transparent;
     position: relative;
@@ -243,26 +386,234 @@ select {
     pointer-events: none;
 }
 
-/* === Editor Area === */
-.editor-area {
+/* === Workbench (three-column body) === */
+.workbench {
     flex: 1;
-    padding: 20px;
-    overflow: auto;
+    display: grid;
+    grid-template-columns: 260px 1fr 300px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.panel {
+    background: var(--surface);
+    padding: 18px 16px;
+    overflow-y: auto;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.panel-left {
+    border-right: 1px solid var(--border);
+}
+
+.panel-right {
+    border-left: 1px solid var(--border);
+}
+
+.panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.panel-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.panel-section-title {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.panel-section-hint {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text-muted);
+}
+
+.panel-row {
+    display: flex;
+    gap: 6px;
+}
+
+.panel-row-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.panel-row button, .panel-btn-wide {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    font-family: var(--serif);
+    text-align: center;
+}
+
+.panel-select {
+    width: 100%;
+}
+
+/* === R1 RS/WS picker (flat mode only) === */
+.first-row-picker {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+}
+
+.first-row-picker.hidden {
+    display: none;
+}
+
+.first-row-label {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-transform: lowercase;
+    letter-spacing: 0.3px;
+}
+
+.first-row-options {
+    display: flex;
+    gap: 8px;
+}
+
+.first-row-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.first-row-option:has(input:checked) {
+    background: var(--selection-soft);
+    border-color: var(--selection);
+}
+
+.first-row-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.first-row-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.first-row-option:has(input:checked) .first-row-dot {
+    border-color: var(--selection);
+    background: var(--selection);
+}
+
+.first-row-name {
+    font-family: var(--serif);
+    font-size: 0.8rem;
+    color: var(--text);
+    flex: 1;
+}
+
+.first-row-code {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+/* Dimensions grid */
+.dimensions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.dimension-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dimension-label {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text-muted);
+}
+
+.dimension-field input[type="number"] {
+    width: 100%;
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    padding: 6px 8px;
+}
+
+.dimension-suffix {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+/* Canvas area */
+.canvas-area {
+    overflow: auto;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    /* 'safe center' keeps the chart centred while NOT clipping when it's wider
+       than the container — 'center' alone causes negative offset that hides
+       scrollable content. */
+    align-items: safe center;
+    gap: 14px;
+    background:
+        repeating-linear-gradient(0deg, transparent 0 39px, rgba(42,33,26,0.025) 39px 40px);
+    transition: padding-bottom 0.2s;
+}
+
+/* When knit mode is active, the fixed knit bar sits over the bottom edge of
+   the workbench — which is where the canvas-area's horizontal scrollbar
+   renders. Shrink the workbench so the scrollbar moves up above the overlay. */
+body.knit-active .workbench {
+    padding-bottom: 148px;
 }
 
 .grid-wrapper {
-    display: flex;
+    display: inline-flex;
     gap: 0;
     user-select: none;
+    background: #fff;
+    padding: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 16px 40px rgba(40,30,20,0.08);
+    flex-shrink: 0;
+    position: relative;
 }
 
 /* === Row/Column Numbers === */
 .row-numbers {
     display: flex;
     flex-direction: column;
-    padding-top: calc(18px + var(--cell-gap));
+    padding-top: calc(18px + 4px + var(--cell-gap));
     gap: var(--cell-gap);
     flex-shrink: 0;
 }
@@ -311,10 +662,19 @@ select {
     padding-left: 0;
 }
 
+.col-numbers-top {
+    margin-bottom: 4px;
+}
+
+.col-numbers-bottom {
+    margin-top: 4px;
+}
+
 .col-number {
     width: var(--cell-size);
     text-align: center;
     font-size: 0.65rem;
+    font-family: var(--mono);
     color: var(--text-muted);
     height: 18px;
     line-height: 18px;
@@ -383,9 +743,32 @@ select {
 }
 
 /* === Selection Actions === */
+.selection-actions {
+    margin-top: 8px;
+    padding: 10px;
+    background: var(--bg);
+    border: 1px dashed var(--border-soft);
+    border-radius: 3px;
+}
+
+.selection-actions-label {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.selection-actions-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+
 .selection-actions button {
-    font-size: 0.8rem;
-    padding: 5px 10px;
+    font-size: 0.72rem;
+    padding: 4px 6px;
+    font-family: var(--mono);
 }
 
 /* === Padding Inputs === */
@@ -477,33 +860,11 @@ select {
     image-rendering: pixelated;
 }
 
-/* === Stitch Palette Sidebar === */
-.editor-area {
-    flex-direction: row;
-    gap: 16px;
-    align-items: flex-start;
-}
-
+/* === Stitch Palette (now inside left panel) === */
 .stitch-palette {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 6px;
-    min-width: 80px;
-    position: sticky;
-    top: 20px;
-}
-
-.stitch-palette h3 {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-    text-align: center;
 }
 
 .stitch-tile-row {
@@ -513,45 +874,100 @@ select {
 
 .stitch-tile {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 3px;
-    padding: 6px;
-    border: 1px solid transparent;
-    border-radius: 4px;
+    gap: 8px;
+    padding: 6px 10px 6px 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
     cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    min-height: 48px;
+}
+
+/* Icon (canvas or erase glyph) sits left, bordered to read as a chip */
+.stitch-tile-canvas,
+.stitch-tile .stitch-erase-icon {
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+}
+.stitch-tile .stitch-erase-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* Label column — main label + optional muted sub-label, all left-aligned */
+.stitch-labels {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+    gap: 1px;
+}
+.stitch-label-main {
+    text-align: left;
+}
+.stitch-tile .stitch-label-sub {
+    font-family: var(--serif);
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: left;
+    white-space: nowrap;
+    font-style: italic;
+}
+
+/* === No-Stitch tile: two rows — [icon | labels] on top, [checkbox] below === */
+.stitch-tile[data-stitch="no-stitch"] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px 8px;
+}
+.stitch-tile[data-stitch="no-stitch"] .no-st-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.stitch-tile[data-stitch="no-stitch"] > .no-st-checkbox {
+    margin: 0;
+    justify-content: flex-start;
+    width: 100%;
 }
 
 .stitch-tile:hover {
     background: var(--surface-hover);
-    border-color: var(--border);
+    border-color: var(--text-soft);
 }
 
 .stitch-tile.active {
     border-color: var(--selection);
     background: var(--selection-soft);
+    box-shadow: inset 0 0 0 1px var(--selection);
 }
 
-.stitch-tile > span {
+.stitch-tile span {
     font-size: 0.8rem;
     color: var(--text);
     font-weight: 600;
     font-family: var(--serif);
 }
 
-.stitch-tile.active > span {
+.stitch-tile.active span {
     color: var(--selection-deep, #4f6a42);
 }
 
 .stitch-tile-canvas {
     border-radius: 3px;
-}
-
-.no-st-sub {
-    font-size: 0.8rem !important;
-    color: var(--text-muted) !important;
-    margin-top: -2px;
 }
 
 .no-st-checkbox {
@@ -574,7 +990,6 @@ select {
 .stitch-erase-icon {
     font-size: 1.2rem;
     color: var(--danger);
-    line-height: 40px;
 }
 
 .grid-cell.stitch-purl {
@@ -816,33 +1231,72 @@ select {
     text-align: center;
 }
 
+/* Top bar — shows the row instructions, centred */
 .knit-direction {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
-
-.knit-instruction {
-    background: rgba(22, 33, 62, 0.95);
-    padding: 10px 16px;
-    font-family: 'Consolas', 'Monaco', monospace;
+    display: inline-block;
+    font-family: var(--mono);
     font-size: 0.95rem;
     color: var(--text);
-    line-height: 1.6;
+    line-height: 1.4;
+    padding: 0 8px;
+    text-align: center;
+    max-width: 100%;
+}
+
+/* Bottom strip — shows the working direction, left-aligned */
+.knit-instruction {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 6px 16px;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    text-align: left;
     pointer-events: all;
-    max-height: 80px;
-    overflow-y: auto;
 }
 
 .grid-cell.knit-active-row {
-    outline: 2px solid #f1c40f !important;
+    outline: 2px solid var(--accent) !important;
     outline-offset: -1px;
+    position: relative;
+    z-index: 6;
 }
+
+/* Red highlight bar that extends past the grid edges for visibility */
+.knit-row-bar {
+    position: absolute;
+    left: -28px;
+    right: -28px;
+    pointer-events: none;
+    border-top: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    background: rgba(155, 47, 42, 0.10);
+    display: none;
+    z-index: 5;
+}
+.knit-row-bar.visible {
+    display: block;
+}
+/* Diamond tabs on each end so the bar reads even at the far edges */
+.knit-row-bar::before,
+.knit-row-bar::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    transform: translateY(-50%) rotate(45deg);
+    background: var(--accent);
+}
+.knit-row-bar::before { left: -8px; }
+.knit-row-bar::after  { right: -8px; }
 
 /* === Fullscreen Knitting View === */
 .knit-fullscreen-view {
     position: fixed;
     inset: 0;
-    background: #0d1117;
+    background: var(--bg);
     z-index: 200;
     display: flex;
     flex-direction: column;
@@ -870,7 +1324,7 @@ select {
 
 .knit-fs-nav:hover {
     background: var(--accent);
-    color: #111;
+    color: #fff;
 }
 
 .knit-fs-info {

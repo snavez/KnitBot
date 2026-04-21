@@ -66,11 +66,15 @@ function preparePrint() {
     // Track drawn cables
     const drawnCables = new Set();
 
+    // R1 can be either RS or WS — affects which side each row is on
+    const r1IsWS = (state.firstRow === 'WS');
+
     // Data rows: top of table = highest row number, bottom = Row 1
     for (let r = 0; r < patRows; r++) {
         const tr = document.createElement('tr');
         const knittingRow = patRows - r;
-        const isRS = (knittingRow % 2 === 1);
+        const isOdd = (knittingRow % 2 === 1);
+        const isRS = isFlat ? (r1IsWS ? !isOdd : isOdd) : true;
 
         // Row header with direction arrow
         const rowHeader = document.createElement('td');

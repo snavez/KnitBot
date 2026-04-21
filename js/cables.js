@@ -201,19 +201,21 @@ function drawKLeanIcon(ctx, x, y, s, dir) {
 }
 
 function drawNoStitchIcon(ctx, x, y, s) {
-    // Muted paper with soft ink X — matches Atelier palette
+    // Muted paper patch — inset to match the stroke extent of the other icons
+    // so the tile's framed-chip border reads consistently around every icon.
+    const pad = s * 0.15;
     ctx.fillStyle = '#c9bca0';
-    ctx.fillRect(x, y, s, s);
+    ctx.fillRect(x + pad, y + pad, s - pad * 2, s - pad * 2);
     ctx.strokeStyle = '#5a4c3e';
     ctx.lineWidth = s * 0.08;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x + s*0.25, y + s*0.25);
-    ctx.lineTo(x + s*0.75, y + s*0.75);
+    ctx.moveTo(x + s*0.3, y + s*0.3);
+    ctx.lineTo(x + s*0.7, y + s*0.7);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(x + s*0.75, y + s*0.25);
-    ctx.lineTo(x + s*0.25, y + s*0.75);
+    ctx.moveTo(x + s*0.7, y + s*0.3);
+    ctx.lineTo(x + s*0.3, y + s*0.7);
     ctx.stroke();
 }
 

@@ -1,5 +1,5 @@
 // KnitBot Service Worker — enables offline use and auto-updates
-const CACHE_VERSION = 'knitbot-v17';
+const CACHE_VERSION = 'knitbot-v34';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './js/image.js',
   './js/cables.js',
   './js/knit-mode.js',
+  './js/tabs.js',
   './icon.svg',
   './manifest.json',
 ];
