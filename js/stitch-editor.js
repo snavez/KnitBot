@@ -11,7 +11,9 @@ const editorState = {
     stroke: '#2a211a',
     eraserActive: false,
     strokeWidth: 6,
-    fillShapes: false,
+    // Fill colour for rect/ellipse — independent of the stroke colour.
+    // null = "no fill" (stroke-only shape).
+    fill: null,
     shapes: [],              // committed shapes, painted in order
     pending: null,           // most-recently drawn shape — still editable
     drawing: null,           // shape in progress during a pointer drag
@@ -51,15 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPreview();
         }
     });
-    document.getElementById('st-fill-toggle').addEventListener('change', (e) => {
-        editorState.fillShapes = e.target.checked;
-        if (editorState.pending && (editorState.pending.type === 'rect' || editorState.pending.type === 'ellipse')) {
-            if (editorState.fillShapes) editorState.pending.fill = editorState.pending.stroke;
-            else delete editorState.pending.fill;
-            redrawCanvas();
-            renderPreview();
-        }
-    });
+    // Fill swatches (4 colours + None). Built lazily in renderColorSwatches.
 
     // Live text-overlay wiring
     wireTextOverlay();
@@ -108,6 +102,8 @@ function openStitchEditor(existing = null) {
     editorState.open = true;
     setupCanvas();
     renderPreview();
+    // Wait one frame so layout has settled before measuring the canvas.
+    requestAnimationFrame(updateTextSliderRange);
     setTimeout(() => document.getElementById('st-code').focus(), 50);
 }
 
@@ -123,7 +119,7 @@ function resetEditor() {
     editorState.stroke = STITCH_DESIGN_COLORS[0].hex;
     editorState.eraserActive = false;
     editorState.strokeWidth = 6;
-    editorState.fillShapes = false;
+    editorState.fill = null;
     editorState.shapes = [];
     editorState.pending = null;
     editorState.drawing = null;
@@ -136,7 +132,6 @@ function resetEditor() {
     document.getElementById('st-code').value = '';
     document.getElementById('st-detailed').value = '';
     document.getElementById('st-stroke-width').value = '6';
-    document.getElementById('st-fill-toggle').checked = false;
     document.getElementById('st-text-size').value = '72';
     document.getElementById('st-text-row').style.display = 'none';
     hideTextOverlay({ commit: false });
@@ -144,6 +139,7 @@ function resetEditor() {
         b.classList.toggle('active', b.dataset.tool === 'freehand');
     });
     renderColorSwatches();
+    renderFillSwatches();
 }
 
 function renderColorSwatches() {
@@ -178,16 +174,75 @@ function renderColorSwatches() {
     host.appendChild(eraser);
 }
 
-// Push the current stroke colour (plus fill if the shape has one) to the
-// shape that's still in "editing" state. Called when the user changes a
-// swatch after drawing — the shape recolours in place, nothing commits.
+// Push the current stroke colour to the still-editing shape. Fill is now
+// tracked independently so changing stroke doesn't change fill.
 function applyColourToPending() {
     const p = editorState.pending;
     if (!p) return;
     p.stroke = editorState.stroke;
-    if (p.fill) p.fill = editorState.stroke;
     redrawCanvas();
     renderPreview();
+}
+
+function renderFillSwatches() {
+    const host = document.getElementById('stitch-editor-fill');
+    if (!host) return;
+    host.innerHTML = '';
+
+    // "None" first — the default
+    const none = document.createElement('button');
+    none.className = 'st-swatch st-swatch-none' + (editorState.fill == null ? ' active' : '');
+    none.title = 'No fill — stroke only';
+    none.addEventListener('click', () => {
+        editorState.fill = null;
+        renderFillSwatches();
+        applyFillToPending();
+    });
+    host.appendChild(none);
+
+    for (const c of STITCH_DESIGN_COLORS) {
+        const sw = document.createElement('button');
+        sw.className = 'st-swatch' + (editorState.fill === c.hex ? ' active' : '');
+        sw.style.background = c.hex;
+        sw.title = `Fill: ${c.name}`;
+        sw.addEventListener('click', () => {
+            editorState.fill = c.hex;
+            renderFillSwatches();
+            applyFillToPending();
+        });
+        host.appendChild(sw);
+    }
+}
+
+function applyFillToPending() {
+    const p = editorState.pending;
+    if (!p) return;
+    if (p.type !== 'rect' && p.type !== 'ellipse') return;
+    if (editorState.fill == null) delete p.fill;
+    else p.fill = editorState.fill;
+    redrawCanvas();
+    renderPreview();
+}
+
+// The slider's CSS-pixel range needs to track the canvas's display size, or
+// "max" stops mapping to "fills the drawing board". Recompute when the editor
+// opens (or when overlay shows) — character glyph at slider max should fit
+// comfortably in the wrapper.
+function updateTextSliderRange() {
+    const wrapper = document.querySelector('.stitch-editor-canvas-wrapper');
+    const slider = document.getElementById('st-text-size');
+    if (!wrapper || !slider) return;
+    const wr = wrapper.getBoundingClientRect();
+    if (!wr.height) return;
+    // Aim for: at slider max, the em-box of a single glyph ≈ canvas height.
+    // 0.92 leaves a touch of margin so the box border + padding fit.
+    const newMax = Math.max(60, Math.floor(wr.height * 0.92));
+    slider.max = String(newMax);
+    if (Number(slider.value) > newMax) {
+        slider.value = String(newMax);
+        editorState.textFontSize = newMax;
+        applyOverlayFontSize();
+    }
 }
 
 function selectTool(tool) {
@@ -228,6 +283,10 @@ function setupCanvas() {
     redrawCanvas();
 }
 
+function clamp01(v) {
+    return Math.max(0, Math.min(100, v));
+}
+
 // Returns the trail point with the greatest perpendicular distance from the
 // straight line (x1,y1)→(x2,y2), or null if the line has zero length.
 function farthestFromLine(trail, x1, y1, x2, y2) {
@@ -254,7 +313,7 @@ function canvasToShape(e) {
 
 function currentShapeBase() {
     const base = { stroke: editorState.stroke, strokeWidth: editorState.strokeWidth };
-    if (editorState.fillShapes) base.fill = editorState.stroke;
+    if (editorState.fill != null) base.fill = editorState.fill;
     return base;
 }
 
@@ -319,11 +378,11 @@ function onPointerMove(e) {
         const orig = h.origShape;
         const pending = editorState.pending;
         if (h.handle === 'x1') {
-            pending.x1 = orig.x1 + dx; pending.y1 = orig.y1 + dy;
+            pending.x1 = clamp01(orig.x1 + dx); pending.y1 = clamp01(orig.y1 + dy);
         } else if (h.handle === 'x2') {
-            pending.x2 = orig.x2 + dx; pending.y2 = orig.y2 + dy;
+            pending.x2 = clamp01(orig.x2 + dx); pending.y2 = clamp01(orig.y2 + dy);
         } else if (h.handle === 'cx') {
-            pending.cx = orig.cx + dx; pending.cy = orig.cy + dy;
+            pending.cx = clamp01(orig.cx + dx); pending.cy = clamp01(orig.cy + dy);
         }
         redrawCanvas();
         renderPreview();
@@ -357,10 +416,12 @@ function onPointerMove(e) {
         // a quadratic bezier only reaches halfway to its control point.)
         // For a quadratic Bezier B(0.5) = 0.25·A + 0.5·C + 0.25·B, so
         // C = 2·apex − (A+B)/2 puts the curve's midpoint at the apex.
+        // Clamp to [0,100] so the control handle never lands off-canvas
+        // (a strongly-curved drag could otherwise push it well outside).
         const apex = farthestFromLine(d._trail, d.x1, d.y1, d.x2, d.y2);
         if (apex) {
-            d.cx = 2 * apex.x - (d.x1 + d.x2) / 2;
-            d.cy = 2 * apex.y - (d.y1 + d.y2) / 2;
+            d.cx = clamp01(2 * apex.x - (d.x1 + d.x2) / 2);
+            d.cy = clamp01(2 * apex.y - (d.y1 + d.y2) / 2);
         } else {
             d.cx = (d.x1 + d.x2) / 2;
             d.cy = (d.y1 + d.y2) / 2;
@@ -640,6 +701,9 @@ function showTextOverlay(existing = null) {
     }
     overlay.style.display = 'flex';
     editorState.textOverlayOpen = true;
+    // Calibrate the slider's range to the current canvas size so "max" maps
+    // to a glyph that fills the drawing board.
+    updateTextSliderRange();
     applyOverlayFontSize();
     applyOverlayColour();
     // Focus & place caret inside the contenteditable

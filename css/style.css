@@ -1657,7 +1657,7 @@ body.knit-active .workbench {
     color: var(--text-muted);
 }
 .stitch-editor-stroke input[type=range] { width: 100px; }
-.stitch-editor-fill-toggle {
+.stitch-editor-fill-group {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1666,7 +1666,36 @@ body.knit-active .workbench {
     font-family: var(--sans);
     font-size: 0.78rem;
     color: var(--text-muted);
-    cursor: pointer;
+}
+.stitch-editor-fill-label {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+.stitch-editor-fill {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+/* Reuse .st-swatch sizing/active rules for fill swatches; the "None" tile
+   shows a diagonal slash on the paper colour. */
+.st-swatch.st-swatch-none {
+    background: var(--surface);
+    color: var(--text-muted);
+    position: relative;
+}
+.st-swatch.st-swatch-none::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    background: linear-gradient(
+        to top right,
+        transparent calc(50% - 1px),
+        var(--text-muted) calc(50% - 0.5px),
+        var(--text-muted) calc(50% + 0.5px),
+        transparent calc(50% + 1px)
+    );
+    border-radius: 50%;
 }
 .stitch-editor-actions {
     display: flex;
@@ -1722,11 +1751,15 @@ body.knit-active .workbench {
 /* Live text-entry overlay sits over the drawing canvas until committed */
 .st-text-overlay {
     position: absolute;
-    left: 10%;
-    top: 25%;
-    width: 80%;
+    left: 5%;
+    top: 5%;
+    /* Max bounds match the drawing board itself (with a small margin) so a
+       character at the slider's max font size has room to render without
+       being clipped. The box's natural height tracks the text height. */
+    max-width: 90%;
+    max-height: 90%;
     min-height: 80px;
-    max-height: 75%;
+    min-width: 80px;
     display: flex;
     flex-direction: column;
     border: 1.5px dashed var(--accent);
@@ -1752,7 +1785,10 @@ body.knit-active .workbench {
     flex-shrink: 0;
 }
 .st-text-overlay-content {
-    flex: 1;
+    /* Sized by its own content (text size) so the overlay grows naturally
+       up to the parent's max-height. Centered display means a single glyph
+       sits in the middle of the box. */
+    flex: 0 0 auto;
     padding: 8px 10px;
     text-align: center;
     outline: none;
@@ -1763,7 +1799,6 @@ body.knit-active .workbench {
     user-select: text;
     cursor: text;
     overflow: hidden;
-    min-height: 0;
     word-break: break-word;
     display: flex;
     align-items: center;
