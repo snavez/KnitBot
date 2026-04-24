@@ -104,9 +104,21 @@ function buildStitchTile(stitch, isActive) {
 // EVENTS
 // ========================================
 function bindStitchEvents() {
-    document.querySelectorAll('.stitch-tile').forEach(tile => {
-        tile.addEventListener('click', () => selectStitch(tile.dataset.stitch));
-    });
+    // Delegated on the palette container — survives palette re-renders when
+    // user stitches load in after startup (or when a new one is saved).
+    const palette = document.getElementById('stitch-palette');
+    if (palette) {
+        palette.addEventListener('click', (e) => {
+            const tile = e.target.closest('.stitch-tile');
+            if (!tile || !palette.contains(tile)) return;
+            // The No-Stitch checkbox sits inside its tile but shouldn't trigger
+            // a stitch selection when toggled.
+            if (e.target.closest('#no-stitch-select-mode') ||
+                (e.target.tagName === 'INPUT' && e.target.type === 'checkbox')) return;
+            selectStitch(tile.dataset.stitch);
+        });
+        palette.addEventListener('contextmenu', onStitchTileContext);
+    }
 
     const container = document.getElementById('grid-container');
 
@@ -670,3 +682,62 @@ setTool = function(tool) {
         document.querySelectorAll('.stitch-tile').forEach(t => t.classList.remove('active'));
     }
 };
+
+// ========================================
+// USER-STITCH CONTEXT MENU (right-click Edit / Delete)
+// ========================================
+function onStitchTileContext(e) {
+    const tile = e.target.closest('.stitch-tile');
+    if (!tile) return;
+    const id = tile.dataset.stitch;
+    const def = StitchRegistry.get(id);
+    // Only user-defined stitches get a context menu — built-ins are part of
+    // the app and the eraser isn't really a stitch.
+    if (!def || def.source !== 'user') return;
+
+    e.preventDefault();
+    openStitchContextMenu(e.clientX, e.clientY, id);
+}
+
+function openStitchContextMenu(x, y, stitchId) {
+    const menu = document.getElementById('stitch-context-menu');
+    if (!menu) return;
+    menu.style.display = 'flex';
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.dataset.stitchId = stitchId;
+
+    // If the menu would overflow the viewport, nudge it back inside.
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) menu.style.left = `${window.innerWidth - rect.width - 8}px`;
+    if (rect.bottom > window.innerHeight) menu.style.top = `${window.innerHeight - rect.height - 8}px`;
+
+    // Wire the buttons once; close on outside-click / Esc.
+    if (!menu.dataset.wired) {
+        menu.dataset.wired = '1';
+        menu.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                const id = menu.dataset.stitchId;
+                closeStitchContextMenu();
+                if (action === 'edit') {
+                    const def = StitchRegistry.get(id);
+                    if (def) openStitchEditor(def);
+                } else if (action === 'delete') {
+                    deleteUserStitch(id);
+                }
+            });
+        });
+        document.addEventListener('click', (evt) => {
+            if (menu.style.display === 'flex' && !menu.contains(evt.target)) closeStitchContextMenu();
+        });
+        document.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Escape') closeStitchContextMenu();
+        });
+    }
+}
+
+function closeStitchContextMenu() {
+    const menu = document.getElementById('stitch-context-menu');
+    if (menu) menu.style.display = 'none';
+}

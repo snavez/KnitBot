@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=46">
+    <link rel="stylesheet" href="css/style.css?v=48">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4fc3f7">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -428,44 +428,61 @@
             <div class="modal-body stitch-editor-body">
                 <div class="stitch-editor-left">
                     <div class="stitch-editor-toolstrip">
-                        <div class="stitch-editor-tool-group">
-                            <button class="st-tool-btn active" data-tool="freehand" title="Freehand pen">Pen</button>
-                            <button class="st-tool-btn" data-tool="line" title="Straight line">Line</button>
-                            <button class="st-tool-btn" data-tool="rect" title="Rectangle">Rect</button>
-                            <button class="st-tool-btn" data-tool="ellipse" title="Ellipse">Ellipse</button>
-                            <button class="st-tool-btn" data-tool="text" title="Text (prompts for characters)">Text</button>
+                        <div class="stitch-editor-tool-row">
+                            <div class="stitch-editor-tool-group">
+                                <button class="st-tool-btn active" data-tool="freehand" title="Freehand pen">Pen</button>
+                                <button class="st-tool-btn" data-tool="line" title="Straight line">Line</button>
+                                <button class="st-tool-btn" data-tool="curve" title="Curved line — drag along the shape you want">Curve</button>
+                                <button class="st-tool-btn" data-tool="rect" title="Rectangle">Rect</button>
+                                <button class="st-tool-btn" data-tool="ellipse" title="Ellipse">Ellipse</button>
+                                <button class="st-tool-btn" data-tool="text" title="Place text — type in the field, then click on the canvas">Text</button>
+                            </div>
+                            <div class="stitch-editor-actions">
+                                <button id="st-undo" title="Remove last shape">Undo</button>
+                                <button id="st-clear" title="Clear canvas">Clear</button>
+                            </div>
                         </div>
-                        <div class="stitch-editor-colors" id="stitch-editor-colors">
-                            <!-- Swatches injected by stitch-editor.js -->
+                        <div class="stitch-editor-tool-row">
+                            <div class="stitch-editor-colors" id="stitch-editor-colors">
+                                <!-- Swatches + eraser injected by stitch-editor.js -->
+                            </div>
+                            <div class="stitch-editor-stroke">
+                                <label for="st-stroke-width">Stroke</label>
+                                <input type="range" id="st-stroke-width" min="2" max="20" value="6" step="1">
+                            </div>
+                            <label class="stitch-editor-fill-toggle" title="Fill rectangles and ellipses with the current colour">
+                                <input type="checkbox" id="st-fill-toggle">
+                                <span>Fill shapes</span>
+                            </label>
                         </div>
-                        <div class="stitch-editor-stroke">
-                            <label for="st-stroke-width">Stroke</label>
-                            <input type="range" id="st-stroke-width" min="2" max="20" value="6" step="1">
-                        </div>
-                        <div class="stitch-editor-actions">
-                            <button id="st-undo" title="Remove last shape">Undo</button>
-                            <button id="st-clear" title="Clear canvas">Clear</button>
+                        <div class="stitch-editor-tool-row stitch-editor-text-row" id="st-text-row" style="display:none;">
+                            <label for="st-text-input">Text</label>
+                            <input type="text" id="st-text-input" placeholder="Type, then click to place…" maxlength="6" autocomplete="off">
+                            <label class="stitch-editor-text-size">
+                                <span>Size</span>
+                                <input type="range" id="st-text-size" min="14" max="64" value="32" step="1">
+                            </label>
                         </div>
                     </div>
                     <div class="stitch-editor-canvas-wrapper">
-                        <canvas id="stitch-editor-canvas" width="320" height="320"></canvas>
+                        <canvas id="stitch-editor-canvas" width="480" height="480"></canvas>
                     </div>
-                    <p class="stitch-editor-hint">Fill the square as fully as you can — the drawing scales to the stitch tile and grid cell.</p>
                 </div>
                 <div class="stitch-editor-right">
-                    <div class="form-row">
+                    <div class="form-grid-row">
                         <label for="st-code">Stitch code</label>
                         <input type="text" id="st-code" placeholder="e.g. C4B, K, M1R" maxlength="16" autocomplete="off">
-                        <div class="form-hint" id="st-code-hint">Used on each row of the instructions.</div>
                     </div>
-                    <div class="form-row">
+                    <div class="form-grid-row form-grid-row-align-top">
                         <label for="st-detailed">Detailed instructions <span class="form-label-opt">(optional)</span></label>
-                        <textarea id="st-detailed" rows="5" placeholder="How the knitter should actually make this stitch. Shown once at the top of the instructions."></textarea>
-                        <div class="form-hint" id="st-detailed-hint">Typing a known code (e.g. C4B) auto-fills a default description.</div>
+                        <textarea id="st-detailed" rows="8" placeholder="How the knitter should actually make this stitch. Shown once at the top of the instructions."></textarea>
                     </div>
-                    <div class="stitch-editor-preview">
-                        <div class="stitch-editor-preview-label">Tile preview</div>
-                        <canvas id="st-preview-canvas" width="40" height="40"></canvas>
+                    <div class="form-grid-row form-grid-row-align-top">
+                        <span class="form-grid-label">Tile preview</span>
+                        <div class="stitch-editor-preview">
+                            <canvas id="st-preview-canvas" width="40" height="40"></canvas>
+                            <span class="stitch-editor-preview-hint">The drawing scales to the tile and to each grid cell.</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -474,6 +491,12 @@
                 <button id="stitch-editor-save" class="btn-primary">Save stitch</button>
             </div>
         </div>
+    </div>
+
+    <!-- Context menu for user-defined stitch tiles (shown on right-click) -->
+    <div class="stitch-context-menu" id="stitch-context-menu" style="display:none;">
+        <button data-action="edit">Edit</button>
+        <button data-action="delete" class="danger">Delete</button>
     </div>
 
     <!-- Print View (hidden, shown only when printing) -->
@@ -487,18 +510,18 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/grid-view.js?v=46"></script>
-    <script src="js/app.js?v=46"></script>
-    <script src="js/preview.js?v=46"></script>
-    <script src="js/print.js?v=46"></script>
-    <script src="js/instructions.js?v=46"></script>
-    <script src="js/random.js?v=46"></script>
-    <script src="js/image.js?v=46"></script>
-    <script src="js/stitches.js?v=46"></script>
-    <script src="js/stitch-editor.js?v=46"></script>
-    <script src="js/cables.js?v=46"></script>
-    <script src="js/knit-mode.js?v=46"></script>
-    <script src="js/tabs.js?v=46"></script>
+    <script src="js/grid-view.js?v=48"></script>
+    <script src="js/app.js?v=48"></script>
+    <script src="js/preview.js?v=48"></script>
+    <script src="js/print.js?v=48"></script>
+    <script src="js/instructions.js?v=48"></script>
+    <script src="js/random.js?v=48"></script>
+    <script src="js/image.js?v=48"></script>
+    <script src="js/stitches.js?v=48"></script>
+    <script src="js/stitch-editor.js?v=48"></script>
+    <script src="js/cables.js?v=48"></script>
+    <script src="js/knit-mode.js?v=48"></script>
+    <script src="js/tabs.js?v=48"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {

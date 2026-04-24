@@ -1543,39 +1543,55 @@ body.knit-active .workbench {
 }
 
 /* === Add Stitch Type editor === */
+/* Typography matches the main workbench: Source Serif for the modal title,
+   Inter for form labels/inputs, uppercase-sans for small headings. */
+
 .stitch-editor-modal {
-    max-width: 960px;
+    max-width: 1040px;
     width: 95vw;
 }
+.stitch-editor-modal .modal-header h2 {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    color: var(--text);
+}
 .stitch-editor-body {
-    display: flex;
-    gap: 20px;
-    padding: 20px;
+    display: grid;
+    grid-template-columns: minmax(360px, 1fr) 380px;
+    gap: 14px;
+    padding: 18px;
     overflow: hidden;
 }
 .stitch-editor-left {
-    flex: 0 0 360px;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 .stitch-editor-right {
-    flex: 1 1 auto;
-    min-width: 260px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 10px 14px;
+    align-content: start;
+    align-items: center;
 }
 .stitch-editor-toolstrip {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+.stitch-editor-tool-row {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
-    padding: 8px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
 }
 .stitch-editor-tool-group {
     display: flex;
@@ -1583,14 +1599,15 @@ body.knit-active .workbench {
 }
 .st-tool-btn {
     padding: 4px 10px;
-    font-size: 0.82rem;
+    font-family: var(--sans);
+    font-size: 0.78rem;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
     border-radius: 3px;
     cursor: pointer;
 }
-.st-tool-btn:hover { background: var(--surface-hover, #f2ede0); }
+.st-tool-btn:hover { background: var(--surface-hover); }
 .st-tool-btn.active {
     background: var(--text);
     color: var(--surface);
@@ -1598,20 +1615,34 @@ body.knit-active .workbench {
 }
 .stitch-editor-colors {
     display: flex;
-    gap: 4px;
-    padding-left: 8px;
-    border-left: 1px solid var(--border);
+    gap: 5px;
+    align-items: center;
 }
 .st-swatch {
-    width: 22px; height: 22px;
+    width: 24px; height: 24px;
     border-radius: 50%;
     border: 1px solid rgba(42,33,26,0.2);
     cursor: pointer;
     padding: 0;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .st-swatch.active {
     outline: 2px solid var(--text);
     outline-offset: 1px;
+}
+.st-swatch.st-swatch-eraser {
+    background: var(--surface);
+    border: 1px dashed var(--text-muted);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-family: var(--sans);
+}
+.st-swatch.st-swatch-eraser.active {
+    color: var(--text);
+    border-color: var(--text);
 }
 .stitch-editor-stroke {
     display: flex;
@@ -1619,11 +1650,21 @@ body.knit-active .workbench {
     gap: 6px;
     padding-left: 8px;
     border-left: 1px solid var(--border);
-    font-size: 0.8rem;
+    font-family: var(--sans);
+    font-size: 0.78rem;
     color: var(--text-muted);
 }
-.stitch-editor-stroke input[type=range] {
-    width: 90px;
+.stitch-editor-stroke input[type=range] { width: 100px; }
+.stitch-editor-fill-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    cursor: pointer;
 }
 .stitch-editor-actions {
     display: flex;
@@ -1632,65 +1673,105 @@ body.knit-active .workbench {
 }
 .stitch-editor-actions button {
     padding: 4px 10px;
-    font-size: 0.82rem;
+    font-family: var(--sans);
+    font-size: 0.78rem;
     border: 1px solid var(--border);
     background: var(--surface);
     border-radius: 3px;
     cursor: pointer;
 }
+.stitch-editor-actions button:hover { background: var(--surface-hover); }
+.stitch-editor-text-row {
+    padding-top: 2px;
+    border-top: 1px dashed var(--border-soft);
+}
+.stitch-editor-text-row label {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.stitch-editor-text-row input[type=text] {
+    flex: 1;
+    max-width: 160px;
+    font: inherit;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 3px;
+    color: var(--text);
+}
+.stitch-editor-text-size {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+}
+.stitch-editor-text-size input[type=range] { width: 90px; }
 .stitch-editor-canvas-wrapper {
     background: #fbf7ec;
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 4px;
-    align-self: flex-start;
+    align-self: stretch;
 }
 #stitch-editor-canvas {
     display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
     cursor: crosshair;
     touch-action: none;
     background: #fbf7ec;
 }
-.stitch-editor-hint {
+/* Right-side form: two-column grid, labels right-aligned against inputs */
+.form-grid-row {
+    display: contents;
+}
+.stitch-editor-right label,
+.stitch-editor-right .form-grid-label {
+    justify-self: end;
+    align-self: center;
+    font-family: var(--sans);
     font-size: 0.78rem;
-    color: var(--text-muted);
-    margin: 0;
-    max-width: 320px;
-}
-.stitch-editor-right .form-row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.stitch-editor-right label {
-    font-size: 0.82rem;
     font-weight: 600;
-    color: var(--text);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.form-grid-row-align-top > label,
+.form-grid-row-align-top > .form-grid-label {
+    align-self: start;
+    padding-top: 6px;
 }
 .form-label-opt {
     color: var(--text-muted);
     font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
 }
 .stitch-editor-right input[type=text],
 .stitch-editor-right textarea {
-    font: inherit;
-    padding: 6px 8px;
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    padding: 7px 10px;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
     border-radius: 3px;
+    width: 100%;
 }
 .stitch-editor-right textarea {
     resize: vertical;
-    font-size: 0.85rem;
-    line-height: 1.4;
+    line-height: 1.45;
 }
-.form-hint {
-    font-size: 0.75rem;
-    color: var(--text-muted);
+.stitch-editor-right input[type=text]:focus,
+.stitch-editor-right textarea:focus {
+    outline: none;
+    border-color: var(--text);
 }
 .stitch-editor-preview {
-    margin-top: auto;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1699,16 +1780,18 @@ body.knit-active .workbench {
     border: 1px solid var(--border);
     border-radius: 4px;
 }
-.stitch-editor-preview-label {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-}
 #st-preview-canvas {
     width: 40px;
     height: 40px;
     background: #fbf7ec;
     border: 1px solid var(--border);
     border-radius: 3px;
+}
+.stitch-editor-preview-hint {
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
 }
 .modal-footer {
     display: flex;
@@ -1719,18 +1802,49 @@ body.knit-active .workbench {
 }
 .modal-footer button {
     padding: 6px 14px;
+    font-family: var(--sans);
+    font-size: 0.85rem;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
     border-radius: 3px;
     cursor: pointer;
-    font: inherit;
 }
 .modal-footer button.btn-primary {
     background: var(--text);
     color: var(--surface);
     border-color: var(--text);
 }
+.modal-footer button:hover { background: var(--surface-hover); }
+.modal-footer button.btn-primary:hover { background: #1a1410; }
+
+/* Right-click Edit/Delete menu on user-stitch tiles */
+.stitch-context-menu {
+    position: fixed;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(42,33,26,0.15);
+    padding: 4px 0;
+    font-family: var(--sans);
+}
+.stitch-context-menu button {
+    padding: 6px 14px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--text);
+    cursor: pointer;
+}
+.stitch-context-menu button:hover { background: var(--surface-hover); }
+.stitch-context-menu button.danger { color: var(--danger); }
+.stitch-context-menu button.danger:hover { background: var(--accent-soft); }
 
 /* === Responsive === */
 @media (max-width: 768px) {

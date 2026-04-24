@@ -472,19 +472,37 @@ function drawUserStitchShapes(ctx, shapes, x, y, w, h) {
             ctx.moveTo(offX + shape.x1 * scale, offY + shape.y1 * scale);
             ctx.lineTo(offX + shape.x2 * scale, offY + shape.y2 * scale);
             ctx.stroke();
+        } else if (shape.type === 'curve') {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(offX + shape.x1 * scale, offY + shape.y1 * scale);
+            ctx.quadraticCurveTo(
+                offX + shape.cx * scale, offY + shape.cy * scale,
+                offX + shape.x2 * scale, offY + shape.y2 * scale
+            );
+            ctx.stroke();
         } else if (shape.type === 'rect') {
+            if (shape.fill) {
+                ctx.fillStyle = shape.fill;
+                ctx.fillRect(offX + shape.x * scale, offY + shape.y * scale, shape.w * scale, shape.h * scale);
+            }
             ctx.strokeStyle = stroke;
             ctx.lineWidth = lw;
             ctx.strokeRect(offX + shape.x * scale, offY + shape.y * scale, shape.w * scale, shape.h * scale);
         } else if (shape.type === 'ellipse') {
-            ctx.strokeStyle = stroke;
-            ctx.lineWidth = lw;
             ctx.beginPath();
             ctx.ellipse(
                 offX + shape.cx * scale, offY + shape.cy * scale,
                 Math.max(0.1, shape.rx * scale), Math.max(0.1, shape.ry * scale),
                 0, 0, Math.PI * 2
             );
+            if (shape.fill) {
+                ctx.fillStyle = shape.fill;
+                ctx.fill();
+            }
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
             ctx.stroke();
         } else if (shape.type === 'path' && shape.points && shape.points.length > 1) {
             ctx.strokeStyle = stroke;
