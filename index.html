@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=48">
+    <link rel="stylesheet" href="css/style.css?v=50">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4fc3f7">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -456,16 +456,23 @@
                             </label>
                         </div>
                         <div class="stitch-editor-tool-row stitch-editor-text-row" id="st-text-row" style="display:none;">
-                            <label for="st-text-input">Text</label>
-                            <input type="text" id="st-text-input" placeholder="Type, then click to place…" maxlength="6" autocomplete="off">
+                            <span class="stitch-editor-text-row-hint">Type directly into the text box on the canvas. Drag it to move. Change size or colour above.</span>
                             <label class="stitch-editor-text-size">
-                                <span>Size</span>
-                                <input type="range" id="st-text-size" min="14" max="64" value="32" step="1">
+                                <span>Text size</span>
+                                <input type="range" id="st-text-size" min="14" max="180" value="72" step="1">
                             </label>
+                            <button id="st-text-commit" type="button" title="Paint the text and stop editing">Done</button>
                         </div>
                     </div>
                     <div class="stitch-editor-canvas-wrapper">
                         <canvas id="stitch-editor-canvas" width="480" height="480"></canvas>
+                        <!-- Live text-entry overlay. Visible only while the Text tool is active;
+                             committed into a shape when the user switches tools, clicks Done, or saves. -->
+                        <div class="st-text-overlay" id="st-text-overlay" style="display:none;">
+                            <div class="st-text-overlay-handle" title="Drag to move">&#x2725; drag</div>
+                            <div class="st-text-overlay-content" id="st-text-overlay-content" contenteditable="true"
+                                 spellcheck="false" role="textbox" aria-label="Stitch text"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="stitch-editor-right">
@@ -510,18 +517,18 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/grid-view.js?v=48"></script>
-    <script src="js/app.js?v=48"></script>
-    <script src="js/preview.js?v=48"></script>
-    <script src="js/print.js?v=48"></script>
-    <script src="js/instructions.js?v=48"></script>
-    <script src="js/random.js?v=48"></script>
-    <script src="js/image.js?v=48"></script>
-    <script src="js/stitches.js?v=48"></script>
-    <script src="js/stitch-editor.js?v=48"></script>
-    <script src="js/cables.js?v=48"></script>
-    <script src="js/knit-mode.js?v=48"></script>
-    <script src="js/tabs.js?v=48"></script>
+    <script src="js/grid-view.js?v=50"></script>
+    <script src="js/app.js?v=50"></script>
+    <script src="js/preview.js?v=50"></script>
+    <script src="js/print.js?v=50"></script>
+    <script src="js/instructions.js?v=50"></script>
+    <script src="js/random.js?v=50"></script>
+    <script src="js/image.js?v=50"></script>
+    <script src="js/stitches.js?v=50"></script>
+    <script src="js/stitch-editor.js?v=50"></script>
+    <script src="js/cables.js?v=50"></script>
+    <script src="js/knit-mode.js?v=50"></script>
+    <script src="js/tabs.js?v=50"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {

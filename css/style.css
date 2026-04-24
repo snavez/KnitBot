@@ -1684,21 +1684,14 @@ body.knit-active .workbench {
 .stitch-editor-text-row {
     padding-top: 2px;
     border-top: 1px dashed var(--border-soft);
+    align-items: center;
 }
-.stitch-editor-text-row label {
-    font-family: var(--sans);
-    font-size: 0.78rem;
-    color: var(--text-muted);
-}
-.stitch-editor-text-row input[type=text] {
+.stitch-editor-text-row-hint {
     flex: 1;
-    max-width: 160px;
-    font: inherit;
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    border-radius: 3px;
-    color: var(--text);
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.35;
 }
 .stitch-editor-text-size {
     display: flex;
@@ -1706,10 +1699,89 @@ body.knit-active .workbench {
     gap: 6px;
     padding-left: 8px;
     border-left: 1px solid var(--border);
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--text-muted);
 }
-.stitch-editor-text-size input[type=range] { width: 90px; }
+.stitch-editor-text-size input[type=range] { width: 110px; }
+#st-text-commit {
+    padding: 4px 14px;
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    border: 1px solid var(--text);
+    background: var(--text);
+    color: var(--surface);
+    border-radius: 3px;
+    cursor: pointer;
+}
+#st-text-commit:hover { background: #1a1410; }
+
+/* Live text-entry overlay sits over the drawing canvas until committed */
+.st-text-overlay {
+    position: absolute;
+    left: 10%;
+    top: 25%;
+    width: 80%;
+    min-height: 80px;
+    max-height: 75%;
+    display: flex;
+    flex-direction: column;
+    border: 1.5px dashed var(--accent);
+    border-radius: 4px;
+    background: rgba(251, 247, 236, 0.55);
+    box-shadow: 0 0 0 1px rgba(155, 47, 42, 0.15);
+    z-index: 2;
+    user-select: none;
+}
+.st-text-overlay-handle {
+    padding: 3px 8px;
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(155, 47, 42, 0.08);
+    border-bottom: 1px dashed var(--accent);
+    cursor: move;
+    user-select: none;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    flex-shrink: 0;
+}
+.st-text-overlay-content {
+    flex: 1;
+    padding: 8px 10px;
+    text-align: center;
+    outline: none;
+    font-family: var(--serif);
+    font-size: 72px;
+    line-height: 1;
+    color: var(--text);
+    user-select: text;
+    cursor: text;
+    overflow: hidden;
+    min-height: 0;
+    word-break: break-word;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.st-text-overlay-content:empty::before {
+    content: 'Type here…';
+    color: var(--text-muted);
+    opacity: 0.6;
+}
 .stitch-editor-canvas-wrapper {
-    background: #fbf7ec;
+    position: relative;
+    /* Paper + faint quarter grid drawn as CSS backgrounds. Keeping the grid
+       out of the canvas means the eraser tool (destination-out) can punch
+       pixels back to transparent without hiding the grid. */
+    background-color: #fbf7ec;
+    background-image:
+        linear-gradient(to right, rgba(42,33,26,0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(42,33,26,0.08) 1px, transparent 1px);
+    background-size: 25% 25%;
+    background-position: 0 0;
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 4px;
@@ -1722,7 +1794,7 @@ body.knit-active .workbench {
     aspect-ratio: 1 / 1;
     cursor: crosshair;
     touch-action: none;
-    background: #fbf7ec;
+    background: transparent;
 }
 /* Right-side form: two-column grid, labels right-aligned against inputs */
 .form-grid-row {
@@ -1738,7 +1810,11 @@ body.knit-active .workbench {
     letter-spacing: 1.2px;
     text-transform: uppercase;
     color: var(--text-muted);
-    white-space: nowrap;
+    /* Long labels like "Detailed instructions (optional)" wrap across
+       multiple lines so they don't bleed into the drawing column. */
+    white-space: normal;
+    text-align: right;
+    line-height: 1.3;
 }
 .form-grid-row-align-top > label,
 .form-grid-row-align-top > .form-grid-label {
@@ -1801,9 +1877,10 @@ body.knit-active .workbench {
     border-top: 1px solid var(--border);
 }
 .modal-footer button {
-    padding: 6px 14px;
-    font-family: var(--sans);
-    font-size: 0.85rem;
+    padding: 7px 18px;
+    /* Match the workbench panel buttons (+ Add Stitch Type, Preview pattern, etc.) */
+    font-family: var(--serif);
+    font-size: 0.92rem;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);

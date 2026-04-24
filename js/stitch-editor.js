@@ -17,6 +17,9 @@ const editorState = {
     canvas: null,
     ctx: null,
     detailedTouched: false,
+    // Live text-overlay state (see showTextOverlay / commitLiveText)
+    textOverlayOpen: false,
+    textFontSize: 72,
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,6 +42,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('st-fill-toggle').addEventListener('change', (e) => {
         editorState.fillShapes = e.target.checked;
+    });
+
+    // Live text-overlay wiring
+    wireTextOverlay();
+    document.getElementById('st-text-commit').addEventListener('click', () => {
+        commitLiveText();
+        // Switch to Pen so the user can draw again immediately.
+        selectTool('freehand');
+    });
+    document.getElementById('st-text-size').addEventListener('input', (e) => {
+        editorState.textFontSize = Number(e.target.value);
+        applyOverlayFontSize();
     });
 
     const codeInput = document.getElementById('st-code');
@@ -100,13 +115,16 @@ function resetEditor() {
     editorState.shapes = [];
     editorState.drawing = null;
     editorState.detailedTouched = false;
+    editorState.textOverlayOpen = false;
+    editorState.textFontSize = 72;
 
     document.getElementById('st-code').value = '';
     document.getElementById('st-detailed').value = '';
     document.getElementById('st-stroke-width').value = '6';
     document.getElementById('st-fill-toggle').checked = false;
-    document.getElementById('st-text-input').value = '';
+    document.getElementById('st-text-size').value = '72';
     document.getElementById('st-text-row').style.display = 'none';
+    hideTextOverlay({ commit: false });
     document.querySelectorAll('#stitch-editor-modal .st-tool-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tool === 'freehand');
     });
@@ -126,6 +144,8 @@ function renderColorSwatches() {
             editorState.stroke = c.hex;
             editorState.eraserActive = false;
             renderColorSwatches();
+            // When the Text tool is active, the swatch recolours the live overlay.
+            if (editorState.textOverlayOpen) applyOverlayColour();
         });
         host.appendChild(sw);
     }
@@ -143,14 +163,20 @@ function renderColorSwatches() {
 }
 
 function selectTool(tool) {
+    // Switching AWAY from Text commits whatever the user was typing.
+    if (editorState.tool === 'text' && tool !== 'text') {
+        commitLiveText();
+    }
+
     editorState.tool = tool;
     document.querySelectorAll('#stitch-editor-modal .st-tool-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tool === tool);
     });
-    // Show the text-entry row only when the Text tool is active
     document.getElementById('st-text-row').style.display = (tool === 'text') ? 'flex' : 'none';
     if (tool === 'text') {
-        setTimeout(() => document.getElementById('st-text-input').focus(), 20);
+        showTextOverlay();
+    } else {
+        hideTextOverlay({ commit: false });
     }
 }
 
@@ -172,6 +198,23 @@ function setupCanvas() {
     redrawCanvas();
 }
 
+// Returns the trail point with the greatest perpendicular distance from the
+// straight line (x1,y1)→(x2,y2), or null if the line has zero length.
+function farthestFromLine(trail, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 0.0001) return null;
+    let best = null;
+    let bestD2 = 0;
+    for (const p of trail) {
+        // Perpendicular distance squared from p to the line
+        const cross = (p.x - x1) * dy - (p.y - y1) * dx;
+        const d2 = (cross * cross) / len2;
+        if (d2 > bestD2) { bestD2 = d2; best = p; }
+    }
+    return best;
+}
+
 function canvasToShape(e) {
     const rect = editorState.canvas.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -190,21 +233,8 @@ function onPointerDown(e) {
     const tool = editorState.tool;
     const base = currentShapeBase();
 
-    if (tool === 'text') {
-        const text = document.getElementById('st-text-input').value;
-        if (!text || !text.trim()) {
-            showToast('Type some text in the Text field first, then click to place it.');
-            return;
-        }
-        const size = Number(document.getElementById('st-text-size').value) || 32;
-        editorState.shapes.push({
-            type: 'text', x: p.x, y: p.y, text: text.trim(),
-            fontSize: size, stroke: editorState.stroke,
-        });
-        redrawCanvas();
-        renderPreview();
-        return;
-    }
+    // The Text tool uses an HTML overlay (see showTextOverlay) — no canvas paint.
+    if (tool === 'text') return;
 
     editorState.canvas.setPointerCapture?.(e.pointerId);
 
@@ -235,8 +265,21 @@ function onPointerMove(e) {
     } else if (d.type === 'curve') {
         d._trail.push(p);
         d.x2 = p.x; d.y2 = p.y;
-        const mid = d._trail[Math.floor(d._trail.length / 2)];
-        d.cx = mid.x; d.cy = mid.y;
+        // Control point = the trail point FURTHEST from the straight line A→B.
+        // That makes the rendered curve peak where the user's arc peaked —
+        // intuitive, and the quadratic bezier visibly tracks the drag shape.
+        // (Technically we pull the control out to 2x the apex distance, since
+        // a quadratic bezier only reaches halfway to its control point.)
+        // For a quadratic Bezier B(0.5) = 0.25·A + 0.5·C + 0.25·B, so
+        // C = 2·apex − (A+B)/2 puts the curve's midpoint at the apex.
+        const apex = farthestFromLine(d._trail, d.x1, d.y1, d.x2, d.y2);
+        if (apex) {
+            d.cx = 2 * apex.x - (d.x1 + d.x2) / 2;
+            d.cy = 2 * apex.y - (d.y1 + d.y2) / 2;
+        } else {
+            d.cx = (d.x1 + d.x2) / 2;
+            d.cy = (d.y1 + d.y2) / 2;
+        }
     } else if (d.type === 'rect') {
         d.x = Math.min(d._startX, p.x);
         d.y = Math.min(d._startY, p.y);
@@ -276,23 +319,41 @@ function redrawCanvas() {
     if (!ctx || !canvas) return;
     const W = canvas.width, H = canvas.height;
 
-    ctx.fillStyle = STITCH_COLORS.bg;
-    ctx.fillRect(0, 0, W, H);
-    // Faint quarter grid — helps the user centre their drawing.
-    ctx.strokeStyle = 'rgba(42, 33, 26, 0.08)';
-    ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-        ctx.beginPath();
-        ctx.moveTo((i / 4) * W, 0); ctx.lineTo((i / 4) * W, H);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, (i / 4) * H); ctx.lineTo(W, (i / 4) * H);
-        ctx.stroke();
-    }
+    // Keep the canvas fully transparent so the wrapper's paper+grid CSS
+    // background shows through.
+    ctx.clearRect(0, 0, W, H);
 
     const allShapes = editorState.shapes.slice();
     if (editorState.drawing) allShapes.push(editorState.drawing);
-    drawUserStitchShapes(ctx, allShapes, 0, 0, W, H);
+
+    // Split into paint strokes and eraser strokes. Eraser strokes use
+    // destination-out so they cut holes in previously-painted shapes,
+    // revealing the CSS paper+grid underneath — grid lines survive erasure.
+    const isEraseShape = (s) => s && s.stroke === STITCH_COLORS.bg;
+    const paint = allShapes.filter(s => !isEraseShape(s));
+    const erase = allShapes.filter(isEraseShape);
+
+    drawUserStitchShapes(ctx, paint, 0, 0, W, H);
+    if (erase.length) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        drawUserStitchShapes(ctx, erase, 0, 0, W, H);
+        ctx.restore();
+    }
+
+    // During a Curve drag, mark the apex with a small handle — this is where
+    // the rendered curve will peak, so the user can steer the bend.
+    const d = editorState.drawing;
+    if (d && d.type === 'curve' && d._trail && d._trail.length > 3) {
+        const apex = farthestFromLine(d._trail, d.x1, d.y1, d.x2, d.y2);
+        if (apex) {
+            const sx = W / 100, sy = H / 100;
+            ctx.fillStyle = '#9b2f2a';
+            ctx.beginPath();
+            ctx.arc(apex.x * sx, apex.y * sy, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
 }
 
 function undoLastShape() {
@@ -316,6 +377,135 @@ function renderPreview() {
     drawUserStitchShapes(ctx, editorState.shapes, 0, 0, canvas.width, canvas.height);
 }
 
+// ---------- Live text overlay ----------
+
+function wireTextOverlay() {
+    const overlay = document.getElementById('st-text-overlay');
+    const handle = overlay.querySelector('.st-text-overlay-handle');
+    const content = document.getElementById('st-text-overlay-content');
+    if (overlay.dataset.wired === '1') return;
+    overlay.dataset.wired = '1';
+
+    // Dragging: click + drag the handle to move the overlay. Position is
+    // stored as percentages of the canvas-wrapper so it scales with the modal.
+    let dragStart = null;
+    handle.addEventListener('pointerdown', (e) => {
+        const wrapper = overlay.parentElement;
+        const wr = wrapper.getBoundingClientRect();
+        dragStart = {
+            px: e.clientX, py: e.clientY,
+            // offsetLeft/Top are relative to the positioned parent (the wrapper)
+            startLeft: overlay.offsetLeft, startTop: overlay.offsetTop,
+            wrapperW: wr.width, wrapperH: wr.height,
+        };
+        handle.setPointerCapture(e.pointerId);
+        e.preventDefault();
+    });
+    handle.addEventListener('pointermove', (e) => {
+        if (!dragStart) return;
+        const dx = e.clientX - dragStart.px;
+        const dy = e.clientY - dragStart.py;
+        const newLeft = dragStart.startLeft + dx;
+        const newTop = dragStart.startTop + dy;
+        overlay.style.left = (newLeft / dragStart.wrapperW * 100) + '%';
+        overlay.style.top  = (newTop  / dragStart.wrapperH * 100) + '%';
+    });
+    handle.addEventListener('pointerup', () => { dragStart = null; });
+    handle.addEventListener('pointercancel', () => { dragStart = null; });
+
+    // Enter submits nothing special — let the user add newlines. We intercept
+    // only Escape, which commits and exits the text tool.
+    content.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            selectTool('freehand');
+        }
+    });
+}
+
+function showTextOverlay(existing = null) {
+    const overlay = document.getElementById('st-text-overlay');
+    const content = document.getElementById('st-text-overlay-content');
+    if (!overlay) return;
+
+    if (existing) {
+        // (reserved for future "double-click to edit" support)
+        content.textContent = existing.text || '';
+    } else {
+        content.textContent = '';
+        overlay.style.left = '10%';
+        overlay.style.top  = '25%';
+    }
+    overlay.style.display = 'flex';
+    editorState.textOverlayOpen = true;
+    applyOverlayFontSize();
+    applyOverlayColour();
+    // Focus & place caret inside the contenteditable
+    setTimeout(() => {
+        content.focus();
+        // Position caret at end
+        const range = document.createRange();
+        range.selectNodeContents(content);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }, 20);
+}
+
+function hideTextOverlay({ commit }) {
+    const overlay = document.getElementById('st-text-overlay');
+    if (!overlay) return;
+    if (commit && editorState.textOverlayOpen) commitLiveText();
+    overlay.style.display = 'none';
+    editorState.textOverlayOpen = false;
+}
+
+function applyOverlayFontSize() {
+    const content = document.getElementById('st-text-overlay-content');
+    if (content) content.style.fontSize = editorState.textFontSize + 'px';
+}
+
+function applyOverlayColour() {
+    const content = document.getElementById('st-text-overlay-content');
+    if (content) content.style.color = editorState.eraserActive ? STITCH_COLORS.bg : editorState.stroke;
+}
+
+// Capture the live overlay (text, position, size, colour) as a text shape and
+// hide the overlay. Idempotent — safe to call multiple times.
+function commitLiveText() {
+    if (!editorState.textOverlayOpen) return;
+    const overlay = document.getElementById('st-text-overlay');
+    const content = document.getElementById('st-text-overlay-content');
+    if (!overlay || !content) { editorState.textOverlayOpen = false; return; }
+
+    const text = (content.textContent || '').trim();
+    editorState.textOverlayOpen = false;
+
+    // Snapshot geometry BEFORE hiding the overlay (hiding makes its rect zero).
+    if (text) {
+        const canvas = editorState.canvas;
+        const canvasRect = canvas.getBoundingClientRect();
+        const overlayRect = overlay.getBoundingClientRect();
+        const centreX = ((overlayRect.left + overlayRect.width / 2) - canvasRect.left) / canvasRect.width * 100;
+        const centreY = ((overlayRect.top + overlayRect.height / 2) - canvasRect.top)  / canvasRect.height * 100;
+        const fontSize100 = editorState.textFontSize * 100 / canvasRect.width;
+
+        editorState.shapes.push({
+            type: 'text',
+            x: centreX, y: centreY,
+            text: text,
+            fontSize: fontSize100,
+            stroke: editorState.eraserActive ? STITCH_COLORS.bg : editorState.stroke,
+        });
+    }
+
+    content.textContent = '';
+    overlay.style.display = 'none';
+    redrawCanvas();
+    renderPreview();
+}
+
 // ---------- Code + auto-fill ----------
 
 function onCodeInput(e) {
@@ -330,6 +520,9 @@ function onCodeInput(e) {
 // ---------- Save ----------
 
 async function saveStitch() {
+    // Snapshot any in-flight text so it doesn't get thrown away on save.
+    if (editorState.textOverlayOpen) commitLiveText();
+
     const code = document.getElementById('st-code').value.trim();
     const detailed = document.getElementById('st-detailed').value.trim();
 
