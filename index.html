@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=43">
+    <link rel="stylesheet" href="css/style.css?v=44">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4fc3f7">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -111,86 +111,8 @@
                     <span class="panel-section-title">Stitches</span>
                     <span class="panel-section-hint">click to select</span>
                 </div>
-                <div class="stitch-palette" id="stitch-palette">
-                    <div class="stitch-tile" data-stitch="knit" title="Knit stitch">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">Knit</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="purl" title="Purl stitch">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">Purl</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="left-cross" title="Left Cross — select cells, then click to apply. Reads K/P from row below to determine crossing.">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">Left X</span>
-                            <span class="stitch-label-sub">CF</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="right-cross" title="Right Cross — select cells, then click to apply. Reads K/P from row below to determine crossing.">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">Right X</span>
-                            <span class="stitch-label-sub">CB</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="k-right" title="Knit 2 together — right-leaning decrease">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">K2tog</span>
-                            <span class="stitch-label-sub">dec 1</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="k-left" title="Slip slip knit — left-leaning decrease">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">SSK</span>
-                            <span class="stitch-label-sub">dec 1</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="m1r" title="Make 1 Right — invisible right-leaning increase">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">M1R</span>
-                            <span class="stitch-label-sub">inc 1</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="m1l" title="Make 1 Left — invisible left-leaning increase">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">M1L</span>
-                            <span class="stitch-label-sub">inc 1</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="hole" title="Lace hole — becomes YO in instructions">
-                        <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">Hole</span>
-                            <span class="stitch-label-sub">YO</span>
-                        </div>
-                    </div>
-                    <div class="stitch-tile" data-stitch="no-stitch" title="No stitch — click to fill all empty cells, or tick 'Select' to place individually">
-                        <div class="no-st-top">
-                            <canvas class="stitch-tile-canvas" width="40" height="40"></canvas>
-                            <div class="stitch-labels">
-                                <span class="stitch-label-main">No St</span>
-                                <span class="stitch-label-sub">(All BG)</span>
-                            </div>
-                        </div>
-                        <label class="no-st-checkbox" title="Tick to place No Stitch on individual cells"><input type="checkbox" id="no-stitch-select-mode"> Select Cells</label>
-                    </div>
-                    <div class="stitch-tile stitch-tile-erase" data-stitch="stitch-erase" title="Erase stitch type">
-                        <span class="stitch-erase-icon">&#x2715;</span>
-                        <div class="stitch-labels">
-                            <span class="stitch-label-main">Erase</span>
-                            <span class="stitch-label-sub">Stitch type</span>
-                        </div>
-                    </div>
-                </div>
+                <!-- Tiles injected by StitchRegistry (see js/stitches.js + js/cables.js) -->
+                <div class="stitch-palette" id="stitch-palette"></div>
             </div>
 
             <!-- Palette -->
@@ -504,16 +426,17 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/grid-view.js?v=43"></script>
-    <script src="js/app.js?v=43"></script>
-    <script src="js/preview.js?v=43"></script>
-    <script src="js/print.js?v=43"></script>
-    <script src="js/instructions.js?v=43"></script>
-    <script src="js/random.js?v=43"></script>
-    <script src="js/image.js?v=43"></script>
-    <script src="js/cables.js?v=43"></script>
-    <script src="js/knit-mode.js?v=43"></script>
-    <script src="js/tabs.js?v=43"></script>
+    <script src="js/grid-view.js?v=44"></script>
+    <script src="js/app.js?v=44"></script>
+    <script src="js/preview.js?v=44"></script>
+    <script src="js/print.js?v=44"></script>
+    <script src="js/instructions.js?v=44"></script>
+    <script src="js/random.js?v=44"></script>
+    <script src="js/image.js?v=44"></script>
+    <script src="js/stitches.js?v=44"></script>
+    <script src="js/cables.js?v=44"></script>
+    <script src="js/knit-mode.js?v=44"></script>
+    <script src="js/tabs.js?v=44"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {

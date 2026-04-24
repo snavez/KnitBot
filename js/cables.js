@@ -1,222 +1,103 @@
 // === Context-Driven Crossing System ===
 // Crossings read K/P context from surrounding rows.
 // The chart shows WHAT the fabric looks like, not HOW to make it.
-
-const STITCH_COLORS = {
-    bg: '#fbf7ec',       // warm paper (main background)
-    purlBg: '#fbf7ec',   // same as bg — no tint for purl cells
-    yarn: '#2a211a',     // dark ink (all main stitch lines)
-    yarnDark: '#2a211a', // dark ink (was secondary, now same)
-    yarnFront: '#2a211a',// dark ink (cross front strands now black too)
-    yarnBack: '#c9bca0', // muted paper (back/behind cross strand only)
-    accent: '#2a211a',   // dark ink for +/- marks
-    accentSoft: '#2a211a',
-    ink: 'rgba(42, 33, 26, 0.4)',
-    paperShade: 'rgba(251, 247, 236, 0)',    // transparent — no backdrop for cables
-    purlMark: '#2a211a', // dark ink purl bump
-};
+//
+// Simple stitches (knit/purl/decreases/increases/etc.) and STITCH_COLORS now
+// live in js/stitches.js as a data-driven registry. Crosses stay here because
+// they involve drag-placement + cluster-aware rendering that doesn't fit the
+// single-cell draw model.
 
 let crossIdCounter = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
     initStitchPalette();
     bindStitchEvents();
-
-    // Prevent the checkbox click from also triggering the tile's stitch selection
-    document.getElementById('no-stitch-select-mode').addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
+    // Re-render the palette if user stitches load in after startup.
+    document.addEventListener('stitch-registry-updated', initStitchPalette);
 });
 
 // ========================================
-// STITCH PALETTE
+// STITCH PALETTE (data-driven from StitchRegistry)
 // ========================================
 function initStitchPalette() {
-    document.querySelectorAll('.stitch-tile').forEach(tile => {
-        const stitch = tile.dataset.stitch;
-        const canvas = tile.querySelector('.stitch-tile-canvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+    const palette = document.getElementById('stitch-palette');
+    if (!palette) return;
+
+    // Preserve which tile was selected so re-renders (e.g. after user-stitch
+    // load) don't silently drop the active highlight.
+    const activeId = state?.activeStitch || null;
+    palette.innerHTML = '';
+
+    for (const stitch of StitchRegistry.getAll()) {
+        palette.appendChild(buildStitchTile(stitch, activeId === stitch.id));
+    }
+
+    // Keep the existing behaviour: checkbox click on the No Stitch tile must
+    // not also trigger the tile's stitch selection.
+    const checkbox = document.getElementById('no-stitch-select-mode');
+    if (checkbox) checkbox.addEventListener('click', (e) => e.stopPropagation());
+}
+
+function buildStitchTile(stitch, isActive) {
+    const tile = document.createElement('div');
+    tile.className = 'stitch-tile' + (stitch.extraTileClass ? ' ' + stitch.extraTileClass : '');
+    if (isActive) tile.classList.add('active');
+    tile.dataset.stitch = stitch.id;
+    if (stitch.title) tile.title = stitch.title;
+
+    // Build the icon element: canvas for drawn stitches, span glyph for the eraser.
+    let iconEl;
+    if (stitch.useGlyph) {
+        iconEl = document.createElement('span');
+        iconEl.className = 'stitch-erase-icon';
+        iconEl.textContent = stitch.useGlyph;
+    } else {
+        iconEl = document.createElement('canvas');
+        iconEl.className = 'stitch-tile-canvas';
+        iconEl.width = 40;
+        iconEl.height = 40;
+    }
+
+    const labels = document.createElement('div');
+    labels.className = 'stitch-labels';
+    const main = document.createElement('span');
+    main.className = 'stitch-label-main';
+    main.textContent = stitch.label;
+    labels.appendChild(main);
+    if (stitch.sublabel) {
+        const sub = document.createElement('span');
+        sub.className = 'stitch-label-sub';
+        sub.textContent = stitch.sublabel;
+        labels.appendChild(sub);
+    }
+
+    // No Stitch has a checkbox appended below the icon+labels — preserve the
+    // existing two-part layout (.no-st-top wraps icon+labels).
+    if (stitch.id === 'no-stitch') {
+        const top = document.createElement('div');
+        top.className = 'no-st-top';
+        top.appendChild(iconEl);
+        top.appendChild(labels);
+        tile.appendChild(top);
+
+        const checkboxLabel = document.createElement('label');
+        checkboxLabel.className = 'no-st-checkbox';
+        checkboxLabel.title = 'Tick to place No Stitch on individual cells';
+        checkboxLabel.innerHTML = '<input type="checkbox" id="no-stitch-select-mode"> Select Cells';
+        tile.appendChild(checkboxLabel);
+    } else {
+        tile.appendChild(iconEl);
+        tile.appendChild(labels);
+    }
+
+    if (iconEl.tagName === 'CANVAS' && typeof stitch.drawIcon === 'function') {
+        const ctx = iconEl.getContext('2d');
         ctx.fillStyle = STITCH_COLORS.bg;
         ctx.fillRect(0, 0, 40, 40);
-        switch (stitch) {
-            case 'knit': drawKnitIcon(ctx, 0, 0, 40); break;
-            case 'purl': drawPurlIcon(ctx, 0, 0, 40); break;
-            case 'left-cross': drawCrossIcon(ctx, 40, 'left'); break;
-            case 'right-cross': drawCrossIcon(ctx, 40, 'right'); break;
-            case 'k-right': drawKLeanIcon(ctx, 0, 0, 40, 'right'); break;
-            case 'k-left': drawKLeanIcon(ctx, 0, 0, 40, 'left'); break;
-            case 'm1r': drawM1Icon(ctx, 0, 0, 40, 'right'); break;
-            case 'm1l': drawM1Icon(ctx, 0, 0, 40, 'left'); break;
-            case 'hole': drawHoleIcon(ctx, 0, 0, 40); break;
-            case 'no-stitch': drawNoStitchIcon(ctx, 0, 0, 40); break;
-        }
-    });
-}
-
-function drawKnitIcon(ctx, x, y, s) {
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = s * 0.16;
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.15, y + s*0.15);
-    ctx.lineTo(x + s*0.5, y + s*0.7);
-    ctx.lineTo(x + s*0.85, y + s*0.15);
-    ctx.stroke();
-    ctx.strokeStyle = STITCH_COLORS.yarnDark;
-    ctx.lineWidth = s * 0.1;
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.35, y + s*0.88);
-    ctx.lineTo(x + s*0.65, y + s*0.88);
-    ctx.stroke();
-}
-
-function drawPurlIcon(ctx, x, y, s) {
-    // No backdrop — just a dark ink bump on the default cream
-    ctx.strokeStyle = STITCH_COLORS.purlMark;
-    ctx.lineWidth = s * 0.14;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.2, y + s*0.5);
-    ctx.lineTo(x + s*0.8, y + s*0.5);
-    ctx.stroke();
-}
-
-function drawCrossIcon(ctx, s, dir) {
-    const lw = s * 0.14;
-    ctx.lineCap = 'round';
-    // Left cross: front strand goes top-left → bottom-right (reads as bottom-right → top-left = left lean)
-    // Right cross: front strand goes top-right → bottom-left (reads as bottom-left → top-right = right lean)
-    const frontFrom = dir === 'left' ? 0.25 : 0.75;
-    const frontTo = dir === 'left' ? 0.75 : 0.25;
-    const backFrom = dir === 'left' ? 0.75 : 0.25;
-    const backTo = dir === 'left' ? 0.25 : 0.75;
-
-    // Back strand (dim)
-    ctx.strokeStyle = STITCH_COLORS.yarnBack;
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    ctx.moveTo(s * backFrom, 0);
-    ctx.bezierCurveTo(s * backFrom, s*0.6, s * backTo, s*0.4, s * backTo, s);
-    ctx.stroke();
-    // Gap
-    ctx.strokeStyle = STITCH_COLORS.bg;
-    ctx.lineWidth = lw + 4;
-    ctx.beginPath();
-    ctx.moveTo(s * frontFrom, 0);
-    ctx.bezierCurveTo(s * frontFrom, s*0.6, s * frontTo, s*0.4, s * frontTo, s);
-    ctx.stroke();
-    // Front strand (bright)
-    ctx.strokeStyle = STITCH_COLORS.yarnFront;
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    ctx.moveTo(s * frontFrom, 0);
-    ctx.bezierCurveTo(s * frontFrom, s*0.6, s * frontTo, s*0.4, s * frontTo, s);
-    ctx.stroke();
-}
-
-function drawM1Icon(ctx, x, y, s, dir) {
-    ctx.lineCap = 'round';
-    if (dir === 'right') {
-        // /+ : slash on left, plus on right
-        ctx.strokeStyle = STITCH_COLORS.yarn;
-        ctx.lineWidth = s * 0.14;
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.15, y + s*0.7);
-        ctx.lineTo(x + s*0.55, y + s*0.2);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.yarnFront;
-        ctx.lineWidth = s * 0.1;
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.6, y + s*0.7);
-        ctx.lineTo(x + s*0.9, y + s*0.7);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.75, y + s*0.57);
-        ctx.lineTo(x + s*0.75, y + s*0.83);
-        ctx.stroke();
-    } else {
-        // +\ : plus on left, slash on right
-        ctx.strokeStyle = STITCH_COLORS.yarnFront;
-        ctx.lineWidth = s * 0.1;
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.1, y + s*0.7);
-        ctx.lineTo(x + s*0.4, y + s*0.7);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.25, y + s*0.57);
-        ctx.lineTo(x + s*0.25, y + s*0.83);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.yarn;
-        ctx.lineWidth = s * 0.14;
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.45, y + s*0.2);
-        ctx.lineTo(x + s*0.85, y + s*0.7);
-        ctx.stroke();
+        stitch.drawIcon(ctx, 40);
     }
-}
 
-function drawHoleIcon(ctx, x, y, s) {
-    // Cream filled circle with black outline
-    ctx.fillStyle = '#ede3cc'; // the old purlBg cream
-    ctx.beginPath();
-    ctx.arc(x + s*0.5, y + s*0.5, s*0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = s * 0.1;
-    ctx.stroke();
-}
-
-function drawKLeanIcon(ctx, x, y, s, dir) {
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = s * 0.14;
-    if (dir === 'right') {
-        // /- : slash on left, minus on right
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.15, y + s*0.7);
-        ctx.lineTo(x + s*0.55, y + s*0.2);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.yarnFront;
-        ctx.lineWidth = s * 0.1;
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.6, y + s*0.75);
-        ctx.lineTo(x + s*0.9, y + s*0.75);
-        ctx.stroke();
-    } else {
-        // -\ : minus on left, slash on right
-        ctx.strokeStyle = STITCH_COLORS.yarnFront;
-        ctx.lineWidth = s * 0.1;
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.1, y + s*0.75);
-        ctx.lineTo(x + s*0.4, y + s*0.75);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.yarn;
-        ctx.lineWidth = s * 0.14;
-        ctx.beginPath();
-        ctx.moveTo(x + s*0.45, y + s*0.2);
-        ctx.lineTo(x + s*0.85, y + s*0.7);
-        ctx.stroke();
-    }
-}
-
-function drawNoStitchIcon(ctx, x, y, s) {
-    // Muted paper patch — inset to match the stroke extent of the other icons
-    // so the tile's framed-chip border reads consistently around every icon.
-    const pad = s * 0.15;
-    ctx.fillStyle = '#c9bca0';
-    ctx.fillRect(x + pad, y + pad, s - pad * 2, s - pad * 2);
-    ctx.strokeStyle = '#5a4c3e';
-    ctx.lineWidth = s * 0.08;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.3, y + s*0.3);
-    ctx.lineTo(x + s*0.7, y + s*0.7);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + s*0.7, y + s*0.3);
-    ctx.lineTo(x + s*0.3, y + s*0.7);
-    ctx.stroke();
+    return tile;
 }
 
 // ========================================
@@ -235,7 +116,7 @@ function bindStitchEvents() {
         if (!hit) return;
         const r = hit.r, c = hit.c;
 
-        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'no-stitch', 'stitch-erase'].includes(state.activeStitch)) {
+        if (StitchRegistry.isPaintable(state.activeStitch)) {
             e.preventDefault();
             e.stopPropagation();
             applySimpleStitch(r, c);
@@ -258,7 +139,7 @@ function bindStitchEvents() {
         if (!hit) return;
         const r = hit.r, c = hit.c;
 
-        if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'no-stitch', 'stitch-erase'].includes(state.activeStitch) && state.isPainting) {
+        if (StitchRegistry.isPaintable(state.activeStitch) && state.isPainting) {
             applySimpleStitch(r, c);
             return;
         }
@@ -317,7 +198,7 @@ function selectStitch(stitch) {
 }
 
 function isCrossStitch(stitch) {
-    return stitch === 'left-cross' || stitch === 'right-cross';
+    return StitchRegistry.isCross(stitch);
 }
 
 // ========================================
@@ -340,22 +221,9 @@ function applySimpleStitch(r, c) {
         } else {
             state.stitchGrid[r][c] = null;
         }
-    } else if (state.activeStitch === 'knit') {
-        state.stitchGrid[r][c] = 'knit';
-    } else if (state.activeStitch === 'purl') {
-        state.stitchGrid[r][c] = 'purl';
-    } else if (state.activeStitch === 'k-right') {
-        state.stitchGrid[r][c] = 'k-right';
-    } else if (state.activeStitch === 'k-left') {
-        state.stitchGrid[r][c] = 'k-left';
-    } else if (state.activeStitch === 'm1r') {
-        state.stitchGrid[r][c] = 'm1r';
-    } else if (state.activeStitch === 'm1l') {
-        state.stitchGrid[r][c] = 'm1l';
-    } else if (state.activeStitch === 'hole') {
-        state.stitchGrid[r][c] = 'hole';
-    } else if (state.activeStitch === 'no-stitch') {
-        state.stitchGrid[r][c] = 'no-stitch';
+    } else if (StitchRegistry.isSimple(state.activeStitch)) {
+        // Registry ids are what we store in the grid verbatim.
+        state.stitchGrid[r][c] = state.activeStitch;
     }
     renderStitchOverlay();
 }
@@ -579,26 +447,18 @@ function renderStitchOverlay() {
             const x = c * stepX;
             const y = r * stepY;
 
-            if (stitch === 'knit') {
-                drawKnitOverlay(ctx, x, y, cellW, cellH);
-            } else if (stitch === 'purl') {
-                drawPurlOverlay(ctx, x, y, cellW, cellH);
-            } else if (stitch === 'k-right') {
-                drawKLeanOverlay(ctx, x, y, cellW, cellH, 'right');
-            } else if (stitch === 'k-left') {
-                drawKLeanOverlay(ctx, x, y, cellW, cellH, 'left');
-            } else if (stitch === 'm1r') {
-                drawM1Overlay(ctx, x, y, cellW, cellH, 'right');
-            } else if (stitch === 'm1l') {
-                drawM1Overlay(ctx, x, y, cellW, cellH, 'left');
-            } else if (stitch === 'hole') {
-                drawHoleOverlay(ctx, x, y, cellW, cellH);
-            } else if (stitch === 'no-stitch') {
-                drawNoStitchOverlay(ctx, x, y, cellW, cellH);
-            } else if (typeof stitch === 'object' && !drawnCrossings.has(stitch.id)) {
-                drawnCrossings.add(stitch.id);
-                const startX = (c - stitch.pos) * stepX;
-                drawCrossingOverlay(ctx, startX, y, cellW, cellH, stitch, gap);
+            if (typeof stitch === 'object') {
+                // Crossing — rendered by the cluster-aware overlay below
+                if (!drawnCrossings.has(stitch.id)) {
+                    drawnCrossings.add(stitch.id);
+                    const startX = (c - stitch.pos) * stepX;
+                    drawCrossingOverlay(ctx, startX, y, cellW, cellH, stitch, gap);
+                }
+            } else {
+                const def = StitchRegistry.get(stitch);
+                if (def && typeof def.drawCell === 'function') {
+                    def.drawCell(ctx, x, y, cellW, cellH);
+                }
             }
         }
     }
@@ -630,141 +490,7 @@ function drawRowBalanceIndicators(ctx, stepX, stepY, cellW, cellH) {
     }
 }
 
-function drawKnitOverlay(ctx, x, y, w, h) {
-    const lw = Math.max(1.5, w * 0.14);
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = STITCH_COLORS.yarn;
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    ctx.moveTo(x + w*0.15, y + h*0.15);
-    ctx.lineTo(x + w*0.5, y + h*0.7);
-    ctx.lineTo(x + w*0.85, y + h*0.15);
-    ctx.stroke();
-    ctx.strokeStyle = STITCH_COLORS.yarnDark;
-    ctx.lineWidth = lw * 0.7;
-    ctx.beginPath();
-    ctx.moveTo(x + w*0.35, y + h*0.88);
-    ctx.lineTo(x + w*0.65, y + h*0.88);
-    ctx.stroke();
-}
-
-function drawPurlOverlay(ctx, x, y, w, h) {
-    // No backdrop — just a dark ink bump
-    ctx.strokeStyle = STITCH_COLORS.purlMark;
-    ctx.lineWidth = Math.max(2, w * 0.13);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + w*0.2, y + h*0.5);
-    ctx.lineTo(x + w*0.8, y + h*0.5);
-    ctx.stroke();
-}
-
-function drawNoStitchOverlay(ctx, x, y, w, h) {
-    // Muted paper fill with a soft X
-    ctx.fillStyle = 'rgba(201, 188, 160, 0.7)';
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = 'rgba(90, 76, 62, 0.5)';
-    ctx.lineWidth = Math.max(1, w * 0.06);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + w*0.25, y + h*0.25);
-    ctx.lineTo(x + w*0.75, y + h*0.75);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x + w*0.75, y + h*0.25);
-    ctx.lineTo(x + w*0.25, y + h*0.75);
-    ctx.stroke();
-}
-
-function drawKLeanOverlay(ctx, x, y, w, h, dir) {
-    const lw = Math.max(1.5, w * 0.12);
-    ctx.lineCap = 'round';
-    if (dir === 'right') {
-        // /-
-        ctx.strokeStyle = STITCH_COLORS.yarn;
-        ctx.lineWidth = lw;
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.1, y + h*0.75);
-        ctx.lineTo(x + w*0.5, y + h*0.2);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.accent;
-        ctx.lineWidth = Math.max(1, w * 0.08);
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.58, y + h*0.8);
-        ctx.lineTo(x + w*0.88, y + h*0.8);
-        ctx.stroke();
-    } else {
-        // -backslash
-        ctx.strokeStyle = STITCH_COLORS.accent;
-        ctx.lineWidth = Math.max(1, w * 0.08);
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.12, y + h*0.8);
-        ctx.lineTo(x + w*0.42, y + h*0.8);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.yarn;
-        ctx.lineWidth = lw;
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.5, y + h*0.2);
-        ctx.lineTo(x + w*0.9, y + h*0.75);
-        ctx.stroke();
-    }
-}
-
-function drawM1Overlay(ctx, x, y, w, h, dir) {
-    const lw = Math.max(1.5, w * 0.12);
-    ctx.lineCap = 'round';
-    if (dir === 'right') {
-        // /+
-        ctx.strokeStyle = STITCH_COLORS.yarn;
-        ctx.lineWidth = lw;
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.1, y + h*0.75);
-        ctx.lineTo(x + w*0.5, y + h*0.2);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.accent;
-        ctx.lineWidth = Math.max(1, w * 0.08);
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.58, y + h*0.75);
-        ctx.lineTo(x + w*0.88, y + h*0.75);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.73, y + h*0.62);
-        ctx.lineTo(x + w*0.73, y + h*0.88);
-        ctx.stroke();
-    } else {
-        // +backslash
-        ctx.strokeStyle = STITCH_COLORS.accent;
-        ctx.lineWidth = Math.max(1, w * 0.08);
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.12, y + h*0.75);
-        ctx.lineTo(x + w*0.42, y + h*0.75);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.27, y + h*0.62);
-        ctx.lineTo(x + w*0.27, y + h*0.88);
-        ctx.stroke();
-        ctx.strokeStyle = STITCH_COLORS.yarn;
-        ctx.lineWidth = lw;
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.5, y + h*0.2);
-        ctx.lineTo(x + w*0.9, y + h*0.75);
-        ctx.stroke();
-    }
-}
-
-function drawHoleOverlay(ctx, x, y, w, h) {
-    // Cream-filled circle with black outline
-    ctx.fillStyle = '#ede3cc';
-    ctx.beginPath();
-    ctx.arc(x + w*0.5, y + h*0.5, Math.min(w, h) * 0.35, 0, Math.PI * 2);
-    ctx.fill();
-    // Subtle ring
-    ctx.strokeStyle = STITCH_COLORS.accentSoft;
-    ctx.lineWidth = Math.max(1.5, w * 0.09);
-    ctx.beginPath();
-    ctx.arc(x + w*0.5, y + h*0.5, Math.min(w, h) * 0.35, 0, Math.PI * 2);
-    ctx.stroke();
-}
+// (per-cell overlay draw funcs for simple stitches live in js/stitches.js)
 
 // ========================================
 // UNIFIED CROSSING RENDERER
