@@ -1542,6 +1542,196 @@ body.knit-active .workbench {
     }
 }
 
+/* === Add Stitch Type editor === */
+.stitch-editor-modal {
+    max-width: 960px;
+    width: 95vw;
+}
+.stitch-editor-body {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    overflow: hidden;
+}
+.stitch-editor-left {
+    flex: 0 0 360px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.stitch-editor-right {
+    flex: 1 1 auto;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.stitch-editor-toolstrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+.stitch-editor-tool-group {
+    display: flex;
+    gap: 4px;
+}
+.st-tool-btn {
+    padding: 4px 10px;
+    font-size: 0.82rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.st-tool-btn:hover { background: var(--surface-hover, #f2ede0); }
+.st-tool-btn.active {
+    background: var(--text);
+    color: var(--surface);
+    border-color: var(--text);
+}
+.stitch-editor-colors {
+    display: flex;
+    gap: 4px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+}
+.st-swatch {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(42,33,26,0.2);
+    cursor: pointer;
+    padding: 0;
+}
+.st-swatch.active {
+    outline: 2px solid var(--text);
+    outline-offset: 1px;
+}
+.stitch-editor-stroke {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.stitch-editor-stroke input[type=range] {
+    width: 90px;
+}
+.stitch-editor-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+.stitch-editor-actions button {
+    padding: 4px 10px;
+    font-size: 0.82rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.stitch-editor-canvas-wrapper {
+    background: #fbf7ec;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px;
+    align-self: flex-start;
+}
+#stitch-editor-canvas {
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+    background: #fbf7ec;
+}
+.stitch-editor-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 320px;
+}
+.stitch-editor-right .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.stitch-editor-right label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+}
+.form-label-opt {
+    color: var(--text-muted);
+    font-weight: 400;
+}
+.stitch-editor-right input[type=text],
+.stitch-editor-right textarea {
+    font: inherit;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 3px;
+}
+.stitch-editor-right textarea {
+    resize: vertical;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+.form-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.stitch-editor-preview {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+.stitch-editor-preview-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+#st-preview-canvas {
+    width: 40px;
+    height: 40px;
+    background: #fbf7ec;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+}
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+}
+.modal-footer button {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 3px;
+    cursor: pointer;
+    font: inherit;
+}
+.modal-footer button.btn-primary {
+    background: var(--text);
+    color: var(--surface);
+    border-color: var(--text);
+}
+
 /* === Responsive === */
 @media (max-width: 768px) {
     header {
@@ -1556,5 +1746,14 @@ body.knit-active .workbench {
 
     :root {
         --cell-base: 18px;
+    }
+
+    .stitch-editor-body {
+        flex-direction: column;
+    }
+    #stitch-editor-canvas {
+        width: 100%;
+        height: auto;
+        max-width: 320px;
     }
 }

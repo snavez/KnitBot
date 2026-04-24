@@ -214,6 +214,29 @@ function formatInstructionsText(pattern, mode) {
             text += '  M1L = Make 1 left (pick up bar front-to-back, knit through back loop)\n';
         }
     }
+
+    // User-defined custom stitches used in this pattern
+    if (typeof StitchRegistry !== 'undefined' && stitchRegion) {
+        const usedUserIds = new Set();
+        for (const row of stitchRegion) {
+            if (!row) continue;
+            for (const s of row) {
+                if (typeof s === 'string') {
+                    const def = StitchRegistry.get(s);
+                    if (def && def.source === 'user') usedUserIds.add(s);
+                }
+            }
+        }
+        if (usedUserIds.size > 0) {
+            text += '\nCustom Stitches:\n';
+            for (const id of usedUserIds) {
+                const def = StitchRegistry.get(id);
+                const body = def.detailedInstructions || '(no detailed instructions provided)';
+                text += `  ${def.code}: ${body}\n`;
+            }
+        }
+    }
+
     text += '\n';
 
     // Instructions
@@ -327,6 +350,14 @@ function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverse
             // Skip — this cell doesn't exist in the pattern
             continue;
         } else {
+            // User-defined stitch? Emit its code verbatim (not K/P-flipped — the
+            // code means the same thing on any row, and the detailed explanation
+            // is listed separately at the top of the instructions).
+            const def = (typeof StitchRegistry !== 'undefined') ? StitchRegistry.get(stitch) : null;
+            if (def && def.source === 'user' && def.code) {
+                tokens.push({ text: def.code, span: 1 });
+                continue;
+            }
             // Simple stitch: knit, purl, or default
             // The chart shows the RS appearance. On WS rows, K↔P are flipped:
             // chart 'knit' = purl on WS, chart 'purl' = knit on WS

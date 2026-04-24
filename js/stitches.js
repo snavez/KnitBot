@@ -410,6 +410,126 @@ const BUILTIN_STITCHES = [
     },
 ];
 
+// Palette for the Add Stitch Type drawing canvas. Kept intentionally small and
+// on-theme: dark ink + three warm greys, matching the existing icon palette so
+// user-designed icons look at home next to the built-ins.
+const STITCH_DESIGN_COLORS = [
+    { hex: '#2a211a', name: 'ink' },
+    { hex: '#5a4c3e', name: 'dark grey' },
+    { hex: '#8a7a62', name: 'mid grey' },
+    { hex: '#c9bca0', name: 'light grey' },
+];
+
+// Known knitting codes and their default detailed instructions. Typing a
+// matching code in the editor pre-fills the detailed-instructions textarea;
+// the user is free to edit or replace the text before saving.
+const STITCH_CODE_LIBRARY = {
+    'K':     'Knit 1: insert right needle front-to-back through next stitch, wrap yarn, pull through.',
+    'P':     'Purl 1: with yarn in front, insert right needle back-to-front through next stitch, wrap yarn, pull through.',
+    'K2tog': 'Knit 2 together: insert right needle through 2 stitches at once and knit them together — right-leaning decrease.',
+    'SSK':   'Slip, slip, knit: slip 2 stitches knitwise one at a time, insert left needle through both fronts and knit them together — left-leaning decrease.',
+    'P2tog': 'Purl 2 together: insert right needle purlwise through 2 stitches and purl them together — right-leaning decrease on the WS.',
+    'SSP':   'Slip, slip, purl: slip 2 stitches knitwise one at a time, return to left needle and purl them together through the back — left-leaning decrease on the WS.',
+    'M1R':   'Make 1 right: slip left needle under the horizontal bar between the last stitch and the next, from back to front. Knit into the front leg.',
+    'M1L':   'Make 1 left: slip left needle under the horizontal bar between the last stitch and the next, from front to back. Knit into the back leg.',
+    'YO':    'Yarn over: bring yarn over the right needle from front to back before the next stitch — creates a decorative hole.',
+    'S2KP':  'Slip 2 knitwise (as if to K2tog), knit 1, pass the 2 slipped stitches over — centred double decrease, balances 2 YOs.',
+    'SP2P':  'Slip 1 purlwise, purl 2 together, pass the slipped stitch over — WS centred double decrease.',
+    'KFB':   'Knit into front and back of the same stitch — one-to-two increase.',
+    'K1tbl': 'Knit 1 through the back loop — produces a twisted stitch.',
+    'P1tbl': 'Purl 1 through the back loop — produces a twisted purl.',
+    'SL':    'Slip 1 purlwise, with yarn held at the back on RS (front on WS).',
+    'C4B':   'Cable 4 back: slip 2 stitches to a cable needle and hold at the back, K2, then K2 from the cable needle. Produces a right-leaning cable cross.',
+    'C4F':   'Cable 4 front: slip 2 stitches to a cable needle and hold at the front, K2, then K2 from the cable needle. Produces a left-leaning cable cross.',
+    'C6B':   'Cable 6 back: slip 3 stitches to a cable needle and hold at the back, K3, then K3 from the cable needle.',
+    'C6F':   'Cable 6 front: slip 3 stitches to a cable needle and hold at the front, K3, then K3 from the cable needle.',
+    'T3B':   'Twist 3 back: slip 1 purl stitch to a cable needle and hold at the back, K2, then P1 from the cable needle.',
+    'T3F':   'Twist 3 front: slip 2 knit stitches to a cable needle and hold at the front, P1, then K2 from the cable needle.',
+};
+
+// Render a user-defined stitch by walking its `shapes` array. Coordinates are
+// normalised 0..100; the renderer maps them to the target (x,y,w,h) rect and
+// preserves aspect ratio (centres the drawing if the target isn't square).
+// Stroke width is stored as a percent of the drawing square and scaled here
+// to the target size so thin strokes don't vanish on tile-sized canvases.
+function drawUserStitchShapes(ctx, shapes, x, y, w, h) {
+    if (!shapes || !shapes.length) return;
+    const scale = Math.min(w, h) / 100;
+    const offX = x + (w - 100 * scale) / 2;
+    const offY = y + (h - 100 * scale) / 2;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const shape of shapes) {
+        const stroke = shape.stroke || STITCH_COLORS.yarn;
+        const lw = Math.max(0.75, (shape.strokeWidth || 6) * scale * 0.5);
+
+        if (shape.type === 'line') {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(offX + shape.x1 * scale, offY + shape.y1 * scale);
+            ctx.lineTo(offX + shape.x2 * scale, offY + shape.y2 * scale);
+            ctx.stroke();
+        } else if (shape.type === 'rect') {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.strokeRect(offX + shape.x * scale, offY + shape.y * scale, shape.w * scale, shape.h * scale);
+        } else if (shape.type === 'ellipse') {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.ellipse(
+                offX + shape.cx * scale, offY + shape.cy * scale,
+                Math.max(0.1, shape.rx * scale), Math.max(0.1, shape.ry * scale),
+                0, 0, Math.PI * 2
+            );
+            ctx.stroke();
+        } else if (shape.type === 'path' && shape.points && shape.points.length > 1) {
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.beginPath();
+            ctx.moveTo(offX + shape.points[0].x * scale, offY + shape.points[0].y * scale);
+            for (let i = 1; i < shape.points.length; i++) {
+                ctx.lineTo(offX + shape.points[i].x * scale, offY + shape.points[i].y * scale);
+            }
+            ctx.stroke();
+        } else if (shape.type === 'text' && shape.text) {
+            const fs = Math.max(6, (shape.fontSize || 30) * scale);
+            ctx.fillStyle = stroke;
+            ctx.font = `${Math.round(fs)}px "Source Serif 4", Georgia, serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(shape.text, offX + shape.x * scale, offY + shape.y * scale);
+        }
+    }
+    ctx.restore();
+}
+
+// Wrap a stored user-stitch record (plain JSON) into a registry entry with
+// the drawIcon/drawCell functions the palette and grid renderer expect.
+function hydrateUserStitch(record) {
+    const shapes = record.shapes || [];
+    return {
+        id: record.id,
+        label: record.label || record.id,
+        sublabel: record.sublabel || null,
+        title: record.title || record.detailedInstructions || `Custom stitch: ${record.id}`,
+        kind: 'simple',
+        code: record.code || record.id,
+        printSymbol: record.code || record.id, // printed in the chart table
+        printSymbolFontPt: (record.code && record.code.length > 1) ? 6 : undefined,
+        detailedInstructions: record.detailedInstructions || '',
+        shapes,
+        source: 'user',
+        order: record.order ?? 500,
+        drawIcon: (ctx, s) => drawUserStitchShapes(ctx, shapes, 0, 0, s, s),
+        drawCell: (ctx, x, y, w, h) => drawUserStitchShapes(ctx, shapes, x, y, w, h),
+        _record: record, // keep the raw record so the gallery editor can round-trip it
+    };
+}
+
 const StitchRegistry = {
     _user: [],
     getAll() {
@@ -431,7 +551,23 @@ const StitchRegistry = {
     // Notation code used when generating knitting instructions.
     codeFor(id) { return this.get(id)?.code ?? null; },
     // Replace the in-memory user list; called after IndexedDB load or edit.
-    setUserStitches(list) { this._user = list || []; },
+    // Accepts raw DB records OR already-hydrated entries.
+    setUserStitches(list) {
+        this._user = (list || []).map(item =>
+            (item && typeof item.drawIcon === 'function') ? item : hydrateUserStitch(item)
+        );
+    },
+    // Add a single user stitch to the in-memory registry (replaces existing id).
+    upsertUserStitch(record) {
+        const hydrated = hydrateUserStitch(record);
+        const idx = this._user.findIndex(s => s.id === hydrated.id);
+        if (idx >= 0) this._user[idx] = hydrated;
+        else this._user.push(hydrated);
+    },
+    removeUserStitch(id) {
+        this._user = this._user.filter(s => s.id !== id);
+    },
+    hasId(id) { return !!this.get(id); },
 };
 
 // ---------- IndexedDB persistence (plumbing for the upcoming editor) ----------
