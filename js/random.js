@@ -59,8 +59,8 @@ function closeRandomModal() {
 }
 
 function generateRandomPattern() {
-    const rows = clamp(+document.getElementById('random-rows').value, 2, 80);
-    const cols = clamp(+document.getElementById('random-cols').value, 2, 80);
+    const rows = clamp(+document.getElementById('random-rows').value, 2, 300);
+    const cols = clamp(+document.getElementById('random-cols').value, 2, 300);
     const mirror = document.getElementById('random-mirror').value;
     const density = +document.getElementById('random-density').value / 100;
     const colors = getPickedColors();

@@ -6,6 +6,7 @@ const knitState = {
     currentKnitRow: 1, // knitting row number (1 = bottom)
     totalRows: 0,
     instructions: [],   // cached per-row instructions
+    arrayRows: [],      // kRow-1 → arrayRow (matches instructions.js skip rules)
     fullscreen: false,
 };
 
@@ -53,13 +54,23 @@ function enterKnitMode() {
         return;
     }
 
+    const mode = state.knittingMode;
+
+    // Work out which rows survive skipping (all-no-stitch rows don't count)
+    const stitchRegion = (typeof getStitchRegion === 'function')
+        ? getStitchRegion(pattern.length, pattern[0].length) : null;
+    knitState.arrayRows = getActiveKnittingRows(pattern, stitchRegion);
+    knitState.totalRows = knitState.arrayRows.length;
+    if (knitState.totalRows === 0) {
+        showToast('Every row is "no stitch" — nothing to knit!');
+        return;
+    }
+
     knitState.active = true;
-    knitState.totalRows = pattern.length;
     knitState.currentKnitRow = 1;
 
     // Generate instructions using the same path as the Instructions modal
     // Parse the full instruction text and extract per-row instructions
-    const mode = state.knittingMode;
     const fullText = formatInstructionsText(pattern, mode);
 
     knitState.instructions = [];
@@ -93,17 +104,19 @@ function exitKnitMode() {
 }
 
 function nextRow() {
-    if (knitState.currentKnitRow < knitState.totalRows) {
-        knitState.currentKnitRow++;
-        updateKnitDisplay();
-    }
+    if (!knitState.totalRows) return;
+    // Wrap back to R1 once we're past the top of the chart — repeating a motif
+    // is the common case, and the button otherwise goes dead after the last row.
+    knitState.currentKnitRow = knitState.currentKnitRow >= knitState.totalRows
+        ? 1 : knitState.currentKnitRow + 1;
+    updateKnitDisplay();
 }
 
 function prevRow() {
-    if (knitState.currentKnitRow > 1) {
-        knitState.currentKnitRow--;
-        updateKnitDisplay();
-    }
+    if (!knitState.totalRows) return;
+    knitState.currentKnitRow = knitState.currentKnitRow <= 1
+        ? knitState.totalRows : knitState.currentKnitRow - 1;
+    updateKnitDisplay();
 }
 
 function toggleFullscreen() {
@@ -157,27 +170,30 @@ function updateKnitDisplay() {
 
 function highlightKnitRow(kRow) {
     clearKnitHighlight();
-    const arrayRow = knitState.totalRows - kRow;
-    // Offset by the trim bounds if needed
+    const arrayRow = knitState.arrayRows[kRow - 1];
     const bounds = getTrimmedBounds();
-    if (!bounds) return;
+    if (!bounds || arrayRow === undefined) return;
     const gridRow = bounds.minR + arrayRow;
 
-    const container = document.getElementById('grid-container');
-    if (!container) return;
-    for (let c = 0; c < state.cols; c++) {
-        const idx = gridRow * state.cols + c;
-        const cell = container.children[idx];
-        if (cell) cell.classList.add('knit-active-row');
-    }
+    // Per-cell red outline on the active row — drawn by GridView on its
+    // overlay canvas (no DOM class toggling on tens of thousands of cells).
+    GridView.setKnitActiveRow(gridRow);
 
-    // Position the full-width red highlight bar that extends past the grid edges
+    // Full-width red highlight bar that extends past the grid edges
     positionKnitRowBar(gridRow);
 
-    // Scroll the row into view
-    const firstCell = container.children[gridRow * state.cols];
-    if (firstCell) {
-        firstCell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Scroll the row into view — compute the row's position from GridView
+    // and scroll the canvas-area so it sits near the middle of the viewport.
+    const container = document.getElementById('grid-container');
+    const canvasArea = document.querySelector('.canvas-area');
+    if (container && canvasArea) {
+        const bounds = GridView.cellBoundsWrapper(gridRow, 0);
+        const containerRect = container.getBoundingClientRect();
+        const areaRect = canvasArea.getBoundingClientRect();
+        // Absolute y of the row's top, relative to canvas-area viewport
+        const rowTop = (containerRect.top - areaRect.top) + bounds.y + canvasArea.scrollTop;
+        const target = rowTop - (canvasArea.clientHeight / 2) + (bounds.h / 2);
+        canvasArea.scrollTo({ top: target, behavior: 'smooth' });
     }
 }
 
@@ -186,7 +202,6 @@ function positionKnitRowBar(gridRow) {
     const container = document.getElementById('grid-container');
     if (!wrapper || !container) return;
 
-    // Ensure the bar exists
     let bar = document.getElementById('knit-row-bar');
     if (!bar) {
         bar = document.createElement('div');
@@ -195,22 +210,23 @@ function positionKnitRowBar(gridRow) {
         wrapper.appendChild(bar);
     }
 
-    const firstCell = container.children[gridRow * state.cols];
-    if (!firstCell) { bar.classList.remove('visible'); return; }
+    // Row position comes from GridView; then translate from grid-container
+    // space into grid-wrapper space (the bar's positioning parent).
+    const bounds = GridView.cellBoundsWrapper(gridRow, 0);
+    if (!bounds) { bar.classList.remove('visible'); return; }
 
     const wrapRect = wrapper.getBoundingClientRect();
-    const cellRect = firstCell.getBoundingClientRect();
-    const top = cellRect.top - wrapRect.top;
-    const height = cellRect.height;
+    const containerRect = container.getBoundingClientRect();
+    const containerOffsetY = containerRect.top - wrapRect.top;
+    const top = containerOffsetY + bounds.y;
+
     bar.style.top = `${top}px`;
-    bar.style.height = `${height}px`;
+    bar.style.height = `${bounds.h}px`;
     bar.classList.add('visible');
 }
 
 function clearKnitHighlight() {
-    document.querySelectorAll('.knit-active-row').forEach(el => {
-        el.classList.remove('knit-active-row');
-    });
+    if (typeof GridView !== 'undefined') GridView.clearKnitActiveRow();
     const bar = document.getElementById('knit-row-bar');
     if (bar) bar.classList.remove('visible');
 }

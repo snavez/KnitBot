@@ -231,9 +231,9 @@ function bindStitchEvents() {
 
     container.addEventListener('mousedown', (e) => {
         if (state.activeTool !== 'stitch') return;
-        const cell = e.target.closest('.grid-cell');
-        if (!cell) return;
-        const r = +cell.dataset.row, c = +cell.dataset.col;
+        const hit = GridView.cellAt(e.clientX, e.clientY);
+        if (!hit) return;
+        const r = hit.r, c = hit.c;
 
         if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'no-stitch', 'stitch-erase'].includes(state.activeStitch)) {
             e.preventDefault();
@@ -254,9 +254,9 @@ function bindStitchEvents() {
 
     container.addEventListener('mousemove', (e) => {
         if (state.activeTool !== 'stitch') return;
-        const cell = e.target.closest('.grid-cell');
-        if (!cell) return;
-        const r = +cell.dataset.row, c = +cell.dataset.col;
+        const hit = GridView.cellAt(e.clientX, e.clientY);
+        if (!hit) return;
+        const r = hit.r, c = hit.c;
 
         if (['knit', 'purl', 'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'no-stitch', 'stitch-erase'].includes(state.activeStitch) && state.isPainting) {
             applySimpleStitch(r, c);
@@ -431,20 +431,18 @@ function computeCrossResult(clusters, dir) {
 // CROSSING PLACEMENT
 // ========================================
 function renderCableGhost() {
-    document.querySelectorAll('.cable-ghost').forEach(el => el.classList.remove('cable-ghost'));
-    if (!state.cableDragStart || !state.cableDragEnd) return;
-
+    if (!state.cableDragStart || !state.cableDragEnd) {
+        GridView.clearCableGhost();
+        return;
+    }
     const row = state.cableDragStart.row;
     const minC = Math.min(state.cableDragStart.col, state.cableDragEnd.col);
     const maxC = Math.max(state.cableDragStart.col, state.cableDragEnd.col);
-    if (maxC - minC + 1 < 2) return;
-
-    const container = document.getElementById('grid-container');
-    for (let c = minC; c <= maxC; c++) {
-        const idx = row * state.cols + c;
-        const cell = container.children[idx];
-        if (cell) cell.classList.add('cable-ghost');
+    if (maxC - minC + 1 < 2) {
+        GridView.clearCableGhost();
+        return;
     }
+    GridView.setCableGhost(row, minC, maxC);
 }
 
 function commitCross() {
@@ -536,7 +534,7 @@ function commitCross() {
 function clearCableDrag() {
     state.cableDragStart = null;
     state.cableDragEnd = null;
-    document.querySelectorAll('.cable-ghost').forEach(el => el.classList.remove('cable-ghost'));
+    GridView.clearCableGhost();
 }
 
 // ========================================
@@ -546,24 +544,27 @@ function renderStitchOverlay() {
     const canvas = document.getElementById('stitch-overlay');
     if (!canvas) return;
     const container = document.getElementById('grid-container');
-    if (!container || !container.children.length) return;
+    if (!container) return;
 
-    const gridRect = container.getBoundingClientRect();
+    // Pull dimensions from GridView instead of reading DOM cells (there
+    // are none anymore — the grid is canvas-backed).
+    const cellSize = GridView.getCellSize();
+    const gap = GridView.getGap();
+    const gridW = container.clientWidth;
+    const gridH = container.clientHeight;
+    if (!gridW || !gridH) return;
+
     const balanceMargin = 24; // extra space for row balance indicators
-    canvas.width = gridRect.width + balanceMargin;
-    canvas.height = gridRect.height;
-    canvas.style.width = (gridRect.width + balanceMargin) + 'px';
-    canvas.style.height = gridRect.height + 'px';
+    canvas.width = gridW + balanceMargin;
+    canvas.height = gridH;
+    canvas.style.width = (gridW + balanceMargin) + 'px';
+    canvas.style.height = gridH + 'px';
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const firstCell = container.children[0];
-    if (!firstCell) return;
-    const cellRect = firstCell.getBoundingClientRect();
-    const cellW = cellRect.width;
-    const cellH = cellRect.height;
-    const gap = parseFloat(getComputedStyle(container).gap) || 1;
+    const cellW = cellSize;
+    const cellH = cellSize;
     const stepX = cellW + gap;
     const stepY = cellH + gap;
 

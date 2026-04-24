@@ -1,10 +1,11 @@
 // KnitBot Service Worker — enables offline use and auto-updates
-const CACHE_VERSION = 'knitbot-v34';
+const CACHE_VERSION = 'knitbot-v43';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
   './js/app.js',
+  './js/grid-view.js',
   './js/preview.js',
   './js/print.js',
   './js/instructions.js',
@@ -21,7 +22,13 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => {
-      return cache.addAll(ASSETS);
+      // Force network (bypass browser HTTP cache) so a new CACHE_VERSION always
+      // picks up the latest asset bytes, even if HTTP responses would be reused.
+      return Promise.all(ASSETS.map((url) =>
+        fetch(url, { cache: 'reload' }).then((res) => {
+          if (res.ok) return cache.put(url, res);
+        })
+      ));
     }).then(() => {
       // Activate immediately without waiting for old tabs to close
       return self.skipWaiting();

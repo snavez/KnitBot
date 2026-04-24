@@ -124,6 +124,29 @@ function runLengthEncode(cells, stitchType, labelMap) {
     }).join(', ');
 }
 
+// A row whose every cell is 'no-stitch' represents a chart placeholder that
+// doesn't produce any actual knitting — skip it when numbering rows. Rows of
+// plain background colour are real stitches (K/P in BG) and must NOT be skipped.
+function isRowAllNoStitch(stitchRow) {
+    if (!stitchRow || !stitchRow.length) return false;
+    return stitchRow.every(s => s === 'no-stitch');
+}
+
+// Returns the arrayRow indices (into `pattern`) for each active knitting row,
+// in knitting-row order: result[0] = R1 (bottom of chart), result[last] = top.
+// Rows that are entirely 'no-stitch' are omitted so R1..Rn are sequential.
+function getActiveKnittingRows(pattern, stitchRegion) {
+    if (!pattern || !pattern.length) return [];
+    const patRows = pattern.length;
+    const active = [];
+    for (let knittingRow = 1; knittingRow <= patRows; knittingRow++) {
+        const arrayRow = patRows - knittingRow;
+        const stitchRow = stitchRegion ? stitchRegion[arrayRow] : null;
+        if (!isRowAllNoStitch(stitchRow)) active.push(arrayRow);
+    }
+    return active;
+}
+
 function formatInstructionsText(pattern, mode) {
     if (!pattern || pattern.length === 0) return '';
 
@@ -199,8 +222,10 @@ function formatInstructionsText(pattern, mode) {
     // R1 can be either RS or WS in flat knitting — affects the side of every row
     const r1IsWS = (state.firstRow === 'WS');
 
-    for (let knittingRow = 1; knittingRow <= patRows; knittingRow++) {
-        const arrayRow = patRows - knittingRow;
+    const activeArrayRows = getActiveKnittingRows(pattern, stitchRegion);
+    for (let i = 0; i < activeArrayRows.length; i++) {
+        const knittingRow = i + 1;
+        const arrayRow = activeArrayRows[i];
 
         if (isFlat) {
             const isOdd = (knittingRow % 2 === 1);
@@ -233,26 +258,11 @@ function formatInstructionsText(pattern, mode) {
     return text;
 }
 
-// Get the stitch grid region matching the current pattern region
+// Get the stitch grid region matching the current pattern region.
+// Uses the same bounds as getPatternRegion so every row/col lines up.
 function getStitchRegion(patRows, patCols) {
     if (!state.stitchGrid || !state.stitchGrid.length) return null;
-
-    // Check if a selection is active
-    const sel = (typeof normalizeSelection === 'function') ? normalizeSelection() : null;
-    if (sel) {
-        const region = [];
-        for (let r = sel.minR; r <= sel.maxR; r++) {
-            const row = [];
-            for (let c = sel.minC; c <= sel.maxC; c++) {
-                row.push(state.stitchGrid[r] ? state.stitchGrid[r][c] : null);
-            }
-            region.push(row);
-        }
-        return region;
-    }
-
-    // Otherwise use trimmed bounds
-    const bounds = getTrimmedBounds();
+    const bounds = (typeof getPatternBounds === 'function') ? getPatternBounds() : null;
     if (!bounds) return null;
     const region = [];
     for (let r = bounds.minR; r <= bounds.maxR; r++) {

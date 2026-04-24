@@ -13,6 +13,9 @@ const state = {
     // (never toggles off) so sweeping across cells doesn't flicker them.
     paintStartCell: null,
     paintDragged: false,
+    // Chart zoom — 1.0 = default cell size. Ctrl+wheel adjusts; clamped in
+    // setZoom(). Also reflected in CSS via the --zoom custom property.
+    zoom: 1.0,
     history: [],
     historyIndex: -1,
     maxHistory: 50,
@@ -54,6 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initPalette();
     initGrid(state.rows, state.cols);
     bindEvents();
+    bindZoom();
+    updateZoomIndicator();
     pushHistory();
 });
 
@@ -121,31 +126,24 @@ function initGrid(rows, cols) {
 }
 
 function renderGrid() {
-    const container = document.getElementById('grid-container');
-    container.style.gridTemplateColumns = `repeat(${state.cols}, var(--cell-size))`;
-    container.style.gridTemplateRows = `repeat(${state.rows}, var(--cell-size))`;
-    container.innerHTML = '';
-
-    for (let r = 0; r < state.rows; r++) {
-        for (let c = 0; c < state.cols; c++) {
-            const cell = document.createElement('div');
-            cell.className = 'grid-cell';
-            cell.dataset.row = r;
-            cell.dataset.col = c;
-            if (state.grid[r][c]) {
-                cell.classList.add('painted');
-                cell.style.background = state.grid[r][c];
-            }
-            container.appendChild(cell);
-        }
-    }
+    // Hand the grid off to the canvas-backed GridView — it clears any DOM
+    // cells, sizes itself to the current rows/cols and zoom, and paints
+    // every cell from state.grid in a single pass.
+    GridView.init(state.rows, state.cols);
 
     renderNumbers();
-    // Render stitch overlay if cables.js is loaded
-    if (typeof renderStitchOverlay === 'function') {
-        renderStitchOverlay();
-    }
+    if (typeof renderStitchOverlay === 'function') renderStitchOverlay();
     updateStatusBar();
+}
+
+// When cells shrink under zoom, row/col labels overlap — show only every Nth.
+// Always keep the first row/col and the last knitting row/col visible.
+function labelStride(cellPx) {
+    if (cellPx >= 14) return 1;
+    if (cellPx >= 9)  return 2;
+    if (cellPx >= 6)  return 5;
+    if (cellPx >= 4)  return 10;
+    return 25;
 }
 
 function renderNumbers() {
@@ -158,8 +156,20 @@ function renderNumbers() {
     colNumsTop.innerHTML = '';
     if (colNumsBot) colNumsBot.innerHTML = '';
 
+    const cellPx = (typeof GridView !== 'undefined') ? GridView.getCellSize() : 22;
+    const stride = labelStride(cellPx);
+
     function makeArrow(arrow) {
         return `<span class="row-arrow">${arrow}</span>`;
+    }
+
+    // Whether this knitting-row number should display a label. Hide
+    // intermediate labels when cells are small so they don't overlap.
+    function showRow(kRow) {
+        return kRow === 1 || kRow === state.rows || (kRow % stride === 0);
+    }
+    function showCol(cNum) {
+        return cNum === 1 || cNum === state.cols || (cNum % stride === 0);
     }
 
     // Row number rules:
@@ -169,6 +179,7 @@ function renderNumbers() {
     for (let r = 0; r < state.rows; r++) {
         const knittingRow = state.rows - r;
         const isOdd = (knittingRow % 2 === 1);
+        const show = showRow(knittingRow);
 
         const leftEl = document.createElement('div');
         leftEl.className = 'row-number';
@@ -176,24 +187,34 @@ function renderNumbers() {
         rightEl.className = 'row-number';
 
         if (state.knittingMode === 'round') {
-            // In the round: all RS, all on right, all ◀
             leftEl.classList.add('row-hidden');
-            rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
-            rightEl.classList.add('row-rs');
-            rightEl.title = `Rnd ${knittingRow} — work right to left`;
+            if (show) {
+                rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
+                rightEl.classList.add('row-rs');
+                rightEl.title = `Rnd ${knittingRow} — work right to left`;
+            } else {
+                rightEl.classList.add('row-hidden');
+            }
         } else {
-            // Flat — figure out RS/WS for this row based on firstRow setting
             const isRS = (state.firstRow === 'RS') ? isOdd : !isOdd;
             const side = isRS ? 'right' : 'left';
             if (side === 'right') {
                 leftEl.classList.add('row-hidden');
-                rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
-                rightEl.classList.add(isRS ? 'row-rs' : 'row-ws');
-                rightEl.title = `Row ${knittingRow} (${isRS ? 'RS' : 'WS'}) — work right to left`;
+                if (show) {
+                    rightEl.innerHTML = makeArrow('\u25C0') + knittingRow;
+                    rightEl.classList.add(isRS ? 'row-rs' : 'row-ws');
+                    rightEl.title = `Row ${knittingRow} (${isRS ? 'RS' : 'WS'}) — work right to left`;
+                } else {
+                    rightEl.classList.add('row-hidden');
+                }
             } else {
-                leftEl.innerHTML = knittingRow + makeArrow('\u25B6');
-                leftEl.classList.add(isRS ? 'row-rs' : 'row-ws');
-                leftEl.title = `Row ${knittingRow} (${isRS ? 'RS' : 'WS'}) — work left to right`;
+                if (show) {
+                    leftEl.innerHTML = knittingRow + makeArrow('\u25B6');
+                    leftEl.classList.add(isRS ? 'row-rs' : 'row-ws');
+                    leftEl.title = `Row ${knittingRow} (${isRS ? 'RS' : 'WS'}) — work left to right`;
+                } else {
+                    leftEl.classList.add('row-hidden');
+                }
                 rightEl.classList.add('row-hidden');
             }
         }
@@ -204,15 +225,18 @@ function renderNumbers() {
 
     // Column numbers — read right-to-left: rightmost cell is column 1, leftmost is column N
     for (let c = 0; c < state.cols; c++) {
-        const colNumber = state.cols - c; // column N on left, column 1 on right
+        const colNumber = state.cols - c;
+        const show = showCol(colNumber);
         const top = document.createElement('div');
         top.className = 'col-number';
-        top.textContent = colNumber;
+        if (show) top.textContent = colNumber;
+        else top.classList.add('col-hidden');
         colNumsTop.appendChild(top);
         if (colNumsBot) {
             const bot = document.createElement('div');
             bot.className = 'col-number';
-            bot.textContent = colNumber;
+            if (show) bot.textContent = colNumber;
+            else bot.classList.add('col-hidden');
             colNumsBot.appendChild(bot);
         }
     }
@@ -253,19 +277,8 @@ function paintCellAdditive(row, col) {
 }
 
 function updateCellDOM(row, col) {
-    const idx = row * state.cols + col;
-    const container = document.getElementById('grid-container');
-    const cell = container.children[idx];
-    if (!cell) return;
-
-    const color = state.grid[row][col];
-    if (color) {
-        cell.classList.add('painted');
-        cell.style.background = color;
-    } else {
-        cell.classList.remove('painted');
-        cell.style.background = '';
-    }
+    // Preserved name for minimal diff across callers — canvas path now.
+    GridView.redrawCell(row, col);
 }
 
 function floodFill(row, col, targetColor, fillColor) {
@@ -295,12 +308,12 @@ function floodFill(row, col, targetColor, fillColor) {
 function bindEvents() {
     const container = document.getElementById('grid-container');
 
-    // Mouse painting & selection
+    // Mouse painting & selection — hit-test via GridView (no more DOM cells).
     container.addEventListener('mousedown', (e) => {
-        const cell = e.target.closest('.grid-cell');
-        if (!cell) return;
+        const hit = GridView.cellAt(e.clientX, e.clientY);
+        if (!hit) return;
         e.preventDefault();
-        const r = +cell.dataset.row, c = +cell.dataset.col;
+        const r = hit.r, c = hit.c;
 
         if (state.activeTool === 'select') {
             if (state.isPasting) {
@@ -328,9 +341,9 @@ function bindEvents() {
     });
 
     container.addEventListener('mousemove', (e) => {
-        const cell = e.target.closest('.grid-cell');
-        if (!cell) return;
-        const r = +cell.dataset.row, c = +cell.dataset.col;
+        const hit = GridView.cellAt(e.clientX, e.clientY);
+        if (!hit) return;
+        const r = hit.r, c = hit.c;
 
         if (state.activeTool === 'select') {
             if (state.isSelecting) {
@@ -388,21 +401,20 @@ function bindEvents() {
     // Right-click to erase
     container.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        const cell = e.target.closest('.grid-cell');
-        if (!cell) return;
-        const r = +cell.dataset.row, c = +cell.dataset.col;
-        state.grid[r][c] = null;
-        updateCellDOM(r, c);
+        const hit = GridView.cellAt(e.clientX, e.clientY);
+        if (!hit) return;
+        state.grid[hit.r][hit.c] = null;
+        updateCellDOM(hit.r, hit.c);
         pushHistory();
     });
 
     // Touch support — mirrors the mouse tap/drag logic so a sweep only paints.
     container.addEventListener('touchstart', (e) => {
         const touch = e.touches[0];
-        const cell = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (!cell || !cell.classList.contains('grid-cell')) return;
+        const hit = GridView.cellAt(touch.clientX, touch.clientY);
+        if (!hit) return;
         e.preventDefault();
-        const r = +cell.dataset.row, c = +cell.dataset.col;
+        const r = hit.r, c = hit.c;
         state.isPainting = true;
         state.paintStartCell = { r, c };
         state.paintDragged = false;
@@ -412,10 +424,10 @@ function bindEvents() {
     container.addEventListener('touchmove', (e) => {
         if (!state.isPainting || state.activeTool === 'fill') return;
         const touch = e.touches[0];
-        const cell = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (!cell || !cell.classList.contains('grid-cell')) return;
+        const hit = GridView.cellAt(touch.clientX, touch.clientY);
+        if (!hit) return;
         e.preventDefault();
-        const r = +cell.dataset.row, c = +cell.dataset.col;
+        const r = hit.r, c = hit.c;
 
         const start = state.paintStartCell;
         if (start && r === start.r && c === start.c) return;
@@ -463,10 +475,17 @@ function bindEvents() {
 
     // Toolbar buttons
     document.getElementById('btn-resize').addEventListener('click', () => {
-        const rows = clamp(+document.getElementById('grid-rows').value, 2, 80);
-        const cols = clamp(+document.getElementById('grid-cols').value, 2, 80);
+        const rows = clamp(+document.getElementById('grid-rows').value, 2, 300);
+        const cols = clamp(+document.getElementById('grid-cols').value, 2, 300);
         document.getElementById('grid-rows').value = rows;
         document.getElementById('grid-cols').value = cols;
+        // Knit mode caches per-row instructions for the CURRENT grid geometry;
+        // if dimensions change out from under it, those indices point into
+        // empty space. Safest: exit knit mode and let the user re-enter.
+        if (typeof knitState !== 'undefined' && knitState.active && typeof exitKnitMode === 'function') {
+            exitKnitMode();
+            showToast('Exited knit mode (grid resized)');
+        }
         initGrid(rows, cols);
         pushHistory();
     });
@@ -605,6 +624,11 @@ function updateUndoRedoButtons() {
 
 // === File Save/Load ===
 function restorePatternData(data) {
+    // Loading a pattern replaces the whole grid; any active knit-mode session
+    // is referring to the previous grid's geometry. Bail out of it cleanly.
+    if (typeof knitState !== 'undefined' && knitState.active && typeof exitKnitMode === 'function') {
+        exitKnitMode();
+    }
     state.rows = data.rows;
     state.cols = data.cols;
     state.grid = data.grid;
@@ -687,6 +711,102 @@ function updateFirstRowPickerVisibility() {
 }
 
 // === Status Bar ===
+// === Zoom ===
+// Excel-style: Ctrl + scroll wheel changes zoom, Ctrl +/- and Ctrl 0 keyboard.
+// Cursor-anchored when triggered by the wheel so the point under the cursor
+// stays under the cursor across the zoom change.
+const ZOOM_MIN = 0.1;   // ~2px cells — lets a 300x300 chart fit a laptop screen
+const ZOOM_MAX = 4.0;
+const ZOOM_STEP = 1.15;
+
+function setZoom(newZoom, anchorClientX, anchorClientY) {
+    newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+    const oldZoom = state.zoom;
+    if (Math.abs(newZoom - oldZoom) < 0.001) return;
+
+    const canvasArea = document.querySelector('.canvas-area');
+    const gridWrapper = document.querySelector('.grid-wrapper');
+
+    // Pre-zoom: capture the content-space position under the anchor so we can
+    // restore it after the reflow.
+    let contentX = null, contentY = null, viewX = null, viewY = null;
+    if (canvasArea && gridWrapper && anchorClientX != null) {
+        const wrapRect = gridWrapper.getBoundingClientRect();
+        const areaRect = canvasArea.getBoundingClientRect();
+        viewX = anchorClientX - areaRect.left;
+        viewY = anchorClientY - areaRect.top;
+        contentX = anchorClientX - wrapRect.left;
+        contentY = anchorClientY - wrapRect.top;
+    }
+
+    state.zoom = newZoom;
+    document.documentElement.style.setProperty('--zoom', String(newZoom));
+
+    // Resize + repaint the canvas grid at the new scale.
+    if (typeof GridView !== 'undefined') GridView.rerender();
+    // Row/col labels may need to thin out (or fill back in) at the new cell size.
+    renderNumbers();
+    if (typeof renderStitchOverlay === 'function') renderStitchOverlay();
+    if (typeof renderSelectionOverlay === 'function') renderSelectionOverlay();
+
+    // Restore the anchor: after the wrapper resizes by (newZoom/oldZoom),
+    // nudge the scroll so the same content point sits under the cursor.
+    if (canvasArea && gridWrapper && contentX != null) {
+        const ratio = newZoom / oldZoom;
+        const targetContentX = contentX * ratio;
+        const targetContentY = contentY * ratio;
+        const newWrapRect = gridWrapper.getBoundingClientRect();
+        const newAreaRect = canvasArea.getBoundingClientRect();
+        const currentContentX = anchorClientX - newWrapRect.left;
+        const currentContentY = anchorClientY - newWrapRect.top;
+        canvasArea.scrollLeft += currentContentX - targetContentX;
+        canvasArea.scrollTop  += currentContentY - targetContentY;
+    }
+
+    updateZoomIndicator();
+}
+
+function updateZoomIndicator() {
+    const el = document.getElementById('status-zoom');
+    if (el) el.textContent = `${Math.round(state.zoom * 100)}%`;
+}
+
+function bindZoom() {
+    const canvasArea = document.querySelector('.canvas-area');
+    if (!canvasArea) return;
+
+    // Ctrl (or Cmd) + wheel = zoom; pass wheel through for scroll otherwise.
+    canvasArea.addEventListener('wheel', (e) => {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        e.preventDefault();
+        const dir = e.deltaY < 0 ? 1 : -1;
+        const factor = dir > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+        setZoom(state.zoom * factor, e.clientX, e.clientY);
+    }, { passive: false });
+
+    // Keyboard shortcuts — Ctrl +/-/0. Match against both layouts.
+    document.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        // Skip when typing in an input / editable surface
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+        if (e.key === '+' || e.key === '=') {
+            e.preventDefault();
+            setZoom(state.zoom * ZOOM_STEP);
+        } else if (e.key === '-' || e.key === '_') {
+            e.preventDefault();
+            setZoom(state.zoom / ZOOM_STEP);
+        } else if (e.key === '0') {
+            e.preventDefault();
+            setZoom(1.0);
+        }
+    });
+
+    // Click the status-bar zoom pill to reset to 100%.
+    const pill = document.getElementById('status-zoom');
+    if (pill) pill.addEventListener('click', () => setZoom(1.0));
+}
+
 function updateStatusBar() {
     const stitchesEl = document.getElementById('status-stitches');
     const coloursEl = document.getElementById('status-colours');
@@ -765,63 +885,55 @@ styleSheet.textContent = `
 `;
 document.head.appendChild(styleSheet);
 
-// === Auto-trim: find the bounding box of cells with content (colour OR stitch) ===
-function getTrimmedBounds() {
-    let minR = state.rows, maxR = -1, minC = state.cols, maxC = -1;
-    for (let r = 0; r < state.rows; r++) {
-        for (let c = 0; c < state.cols; c++) {
-            const hasColor = !!state.grid[r][c];
-            const hasStitch = !!(state.stitchGrid[r] && state.stitchGrid[r][c]);
-            if (hasColor || hasStitch) {
-                minR = Math.min(minR, r);
-                maxR = Math.max(maxR, r);
-                minC = Math.min(minC, c);
-                maxC = Math.max(maxC, c);
-            }
-        }
+// === Pattern region ===
+// The "pattern" is whatever the user will get instructions / knit mode for.
+// Rule: if there's a useful selection, that's the pattern. Otherwise the
+// whole grid is the pattern (no auto-trim). This matches what most users
+// expect at larger grid sizes — if you resized to 300×300 on purpose, that's
+// your pattern, blank cells included (they'll read as BG in instructions).
+function getPatternBounds() {
+    const sel = normalizeSelection();
+    const selIsUseful = sel && (sel.maxR > sel.minR || sel.maxC > sel.minC);
+    if (selIsUseful) {
+        return { minR: sel.minR, maxR: sel.maxR, minC: sel.minC, maxC: sel.maxC };
     }
-    if (maxR === -1) return null; // no content
-    return { minR, maxR, minC, maxC };
+    // Whole grid — if the grid is empty we return null so callers can bail.
+    if (state.rows === 0 || state.cols === 0) return null;
+    return { minR: 0, maxR: state.rows - 1, minC: 0, maxC: state.cols - 1 };
 }
 
-function getTrimmedPattern() {
-    const bounds = getTrimmedBounds();
+// Returns the colour grid for the current pattern region, or null if empty.
+function getPatternRegion() {
+    const bounds = getPatternBounds();
     if (!bounds) return null;
-    const { minR, maxR, minC, maxC } = bounds;
     const pattern = [];
-    for (let r = minR; r <= maxR; r++) {
+    for (let r = bounds.minR; r <= bounds.maxR; r++) {
         const row = [];
-        for (let c = minC; c <= maxC; c++) {
+        for (let c = bounds.minC; c <= bounds.maxC; c++) {
             row.push(state.grid[r][c]);
         }
         pattern.push(row);
     }
+    // If a selection is in play and the region is entirely blank (no colour
+    // AND no stitch), treat as empty so preview/instructions don't generate
+    // a meaningless all-BG output.
+    const sel = normalizeSelection();
+    const selIsUseful = sel && (sel.maxR > sel.minR || sel.maxC > sel.minC);
+    if (selIsUseful) {
+        const hasContent = pattern.some((row, ri) => row.some((c, ci) => {
+            if (c !== null) return true;
+            const sr = bounds.minR + ri, sc = bounds.minC + ci;
+            return !!(state.stitchGrid[sr] && state.stitchGrid[sr][sc]);
+        }));
+        if (!hasContent) return null;
+    }
     return pattern;
 }
 
-// Returns pattern from selection if active, otherwise auto-trims
-function getPatternRegion() {
-    const sel = normalizeSelection();
-    // Only use selection if it spans more than a single cell
-    const selIsUseful = sel && (sel.maxR > sel.minR || sel.maxC > sel.minC);
-    if (selIsUseful) {
-        const pattern = [];
-        for (let r = sel.minR; r <= sel.maxR; r++) {
-            const row = [];
-            for (let c = sel.minC; c <= sel.maxC; c++) {
-                row.push(state.grid[r][c]);
-            }
-            pattern.push(row);
-        }
-        // Return if there's at least one painted cell OR stitch
-        const hasContent = pattern.some((row, ri) => row.some((c, ci) => {
-            if (c !== null) return true;
-            const sr = sel.minR + ri, sc = sel.minC + ci;
-            return !!(state.stitchGrid[sr] && state.stitchGrid[sr][sc]);
-        }));
-        return hasContent ? pattern : null;
-    }
-    return getTrimmedPattern();
+// Kept under its old name for the few callers that still use it; forwards
+// to getPatternBounds so the region stays consistent everywhere.
+function getTrimmedBounds() {
+    return getPatternBounds();
 }
 
 // === Selection / Copy-Paste ===
@@ -837,42 +949,23 @@ function normalizeSelection() {
 }
 
 function renderSelectionOverlay() {
-    const container = document.getElementById('grid-container');
-    const cells = container.children;
     const sel = normalizeSelection();
 
-    // Clear cell highlights
-    for (let i = 0; i < cells.length; i++) {
-        cells[i].classList.remove('selected');
-    }
+    // Tint the selected cells via the canvas overlay.
+    GridView.setSelection(sel);
 
-    // Remove old selection box
+    // Rebuild the dashed selection box — positioned in grid-canvas-wrapper
+    // space using GridView cell bounds. grid-container sits at (0, 0) of the
+    // wrapper, so cell bounds translate straight across.
     let box = document.getElementById('selection-box');
     if (box) box.remove();
-
     if (!sel) return;
 
-    // Highlight selected cells with subtle tint
-    for (let i = 0; i < cells.length; i++) {
-        const cell = cells[i];
-        const r = +cell.dataset.row, c = +cell.dataset.col;
-        if (r >= sel.minR && r <= sel.maxR && c >= sel.minC && c <= sel.maxC) {
-            cell.classList.add('selected');
-        }
-    }
-
-    // Create a single border overlay positioned over the selection
-    const topLeft = cells[sel.minR * state.cols + sel.minC];
-    const botRight = cells[sel.maxR * state.cols + sel.maxC];
-    if (!topLeft || !botRight) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const tlRect = topLeft.getBoundingClientRect();
-    const brRect = botRight.getBoundingClientRect();
+    const tl = GridView.cellBoundsWrapper(sel.minR, sel.minC);
+    const br = GridView.cellBoundsWrapper(sel.maxR, sel.maxC);
 
     box = document.createElement('div');
     box.id = 'selection-box';
-    // Dark-ink dashed outline with a soft cream shadow — pops against any cell colour
     box.style.cssText = `
         position: absolute;
         border: 2px dashed #2a211a;
@@ -881,13 +974,13 @@ function renderSelectionOverlay() {
         z-index: 6;
         border-radius: 2px;
         box-sizing: border-box;
-        left: ${tlRect.left - containerRect.left - 1}px;
-        top: ${tlRect.top - containerRect.top - 1}px;
-        width: ${brRect.right - tlRect.left + 2}px;
-        height: ${brRect.bottom - tlRect.top + 2}px;
+        left: ${tl.x - 1}px;
+        top: ${tl.y - 1}px;
+        width: ${(br.x + br.w) - tl.x + 2}px;
+        height: ${(br.y + br.h) - tl.y + 2}px;
     `;
 
-    // Append to grid-canvas-wrapper so it's positioned relative to the grid
+    const container = document.getElementById('grid-container');
     const wrapper = container.closest('.grid-canvas-wrapper');
     if (wrapper) wrapper.appendChild(box);
 }
@@ -896,10 +989,7 @@ function clearSelection() {
     state.selection = null;
     state.isSelecting = false;
     cancelPaste();
-    const container = document.getElementById('grid-container');
-    for (const cell of container.children) {
-        cell.classList.remove('selected');
-    }
+    GridView.clearSelectionHighlight();
     const box = document.getElementById('selection-box');
     if (box) box.remove();
     const actions = document.getElementById('selection-actions');
@@ -913,16 +1003,7 @@ function cancelPaste() {
 }
 
 function clearPasteGhost() {
-    const container = document.getElementById('grid-container');
-    for (const cell of container.children) {
-        cell.classList.remove('paste-ghost');
-        cell.removeAttribute('data-ghost-color');
-        if (!state.grid[+cell.dataset.row]?.[+cell.dataset.col]) {
-            cell.style.background = '';
-        } else {
-            cell.style.background = state.grid[+cell.dataset.row][+cell.dataset.col];
-        }
-    }
+    GridView.clearPasteGhost();
 }
 
 function copySelection() {
@@ -966,40 +1047,38 @@ function pasteClipboard() {
         showToast('Nothing to paste');
         return;
     }
-    // If there's a selection, paste at its top-left corner immediately
+    // Always enter ghost mode — a faint preview of the clipboard follows the
+    // cursor, click to commit at that position. Pre-position at the current
+    // selection's top-left if one exists so the starting point is sensible.
+    // The select tool must be active for mouse events to reach the paste logic.
     const sel = normalizeSelection();
-    if (sel) {
-        commitPaste(sel.minR, sel.minC);
-        return;
-    }
-    // Otherwise enter ghost mode
+    state.activeTool = 'select';
+    updateToolButtons();
     state.isPasting = true;
-    state.pasteGhostPos = { row: 0, col: 0 };
-    showToast('Click to place');
+    state.pasteGhostPos = sel ? { row: sel.minR, col: sel.minC } : { row: 0, col: 0 };
+    renderPasteGhost();
+    showToast('Move and click to place · Esc to cancel');
 }
 
 function renderPasteGhost() {
-    clearPasteGhost();
-    if (!state.isPasting || !state.pasteGhostPos || !state.clipboard) return;
-    const container = document.getElementById('grid-container');
+    if (!state.isPasting || !state.pasteGhostPos || !state.clipboard) {
+        GridView.clearPasteGhost();
+        return;
+    }
     const { row: startR, col: startC } = state.pasteGhostPos;
     const clipRows = state.clipboard.length;
     const clipCols = state.clipboard[0].length;
-
+    const cells = [];
     for (let dr = 0; dr < clipRows; dr++) {
         for (let dc = 0; dc < clipCols; dc++) {
             const r = startR + dr, c = startC + dc;
             if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) continue;
             const color = state.clipboard[dr][dc];
             if (color === null) continue;
-            const idx = r * state.cols + c;
-            const cell = container.children[idx];
-            if (cell) {
-                cell.classList.add('paste-ghost');
-                cell.style.background = color;
-            }
+            cells.push({ r, c, color });
         }
     }
+    GridView.setPasteGhost(cells);
 }
 
 let pasteIdSeq = 0;
