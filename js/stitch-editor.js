@@ -16,6 +16,7 @@ const editorState = {
     pending: null,           // most-recently drawn shape — still editable
     drawing: null,           // shape in progress during a pointer drag
     moving: null,            // { startPoint, origShape } while dragging pending
+    draggingHandle: null,    // { handle, startPoint, origShape } while editing a curve vertex
     canvas: null,
     ctx: null,
     detailedTouched: false,
@@ -127,6 +128,7 @@ function resetEditor() {
     editorState.pending = null;
     editorState.drawing = null;
     editorState.moving = null;
+    editorState.draggingHandle = null;
     editorState.detailedTouched = false;
     editorState.textOverlayOpen = false;
     editorState.textFontSize = 72;
@@ -263,8 +265,20 @@ function onPointerDown(e) {
 
     if (tool === 'text') return;
 
-    // If there's a still-editable shape and the click is within its bounds,
-    // enter move mode: drag the whole shape instead of starting a new one.
+    // Pending curve: check for a vertex handle hit first. Dragging a handle
+    // edits just that vertex; clicking inside the bounding box moves the whole
+    // curve as before.
+    if (editorState.pending && editorState.pending.type === 'curve') {
+        const handle = hitTestCurveHandle(editorState.pending, p);
+        if (handle) {
+            editorState.draggingHandle = { handle, startPoint: p,
+                origShape: JSON.parse(JSON.stringify(editorState.pending)) };
+            editorState.canvas.setPointerCapture?.(e.pointerId);
+            return;
+        }
+    }
+
+    // Otherwise: click inside the pending shape's bounds → start moving it.
     if (editorState.pending && hitTestShape(editorState.pending, p)) {
         editorState.moving = {
             startPoint: p,
@@ -296,6 +310,25 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
     const p = canvasToShape(e);
+
+    // Dragging a curve vertex handle — updates only that vertex
+    if (editorState.draggingHandle) {
+        const h = editorState.draggingHandle;
+        const dx = p.x - h.startPoint.x;
+        const dy = p.y - h.startPoint.y;
+        const orig = h.origShape;
+        const pending = editorState.pending;
+        if (h.handle === 'x1') {
+            pending.x1 = orig.x1 + dx; pending.y1 = orig.y1 + dy;
+        } else if (h.handle === 'x2') {
+            pending.x2 = orig.x2 + dx; pending.y2 = orig.y2 + dy;
+        } else if (h.handle === 'cx') {
+            pending.cx = orig.cx + dx; pending.cy = orig.cy + dy;
+        }
+        redrawCanvas();
+        renderPreview();
+        return;
+    }
 
     // Dragging the pending shape around
     if (editorState.moving) {
@@ -347,6 +380,10 @@ function onPointerMove(e) {
 }
 
 function onPointerUp() {
+    if (editorState.draggingHandle) {
+        editorState.draggingHandle = null;
+        return;
+    }
     if (editorState.moving) {
         editorState.moving = null;
         return;
@@ -444,9 +481,6 @@ function redrawCanvas() {
     if (editorState.pending) allShapes.push(editorState.pending);
     if (editorState.drawing) allShapes.push(editorState.drawing);
 
-    // Split into paint strokes and eraser strokes. Eraser strokes use
-    // destination-out so they cut holes in previously-painted shapes,
-    // revealing the CSS paper+grid underneath — grid lines survive erasure.
     const isEraseShape = (s) => s && s.stroke === STITCH_COLORS.bg;
     const paint = allShapes.filter(s => !isEraseShape(s));
     const erase = allShapes.filter(isEraseShape);
@@ -459,19 +493,58 @@ function redrawCanvas() {
         ctx.restore();
     }
 
-    // During a Curve drag, mark the apex with a small handle — this is where
-    // the rendered curve will peak, so the user can steer the bend.
+    // During a Curve drag: preview the apex (where the curve peak will land)
     const d = editorState.drawing;
     if (d && d.type === 'curve' && d._trail && d._trail.length > 3) {
         const apex = farthestFromLine(d._trail, d.x1, d.y1, d.x2, d.y2);
-        if (apex) {
-            const sx = W / 100, sy = H / 100;
-            ctx.fillStyle = '#9b2f2a';
-            ctx.beginPath();
-            ctx.arc(apex.x * sx, apex.y * sy, 4, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        if (apex) drawVertexHandle(ctx, apex.x, apex.y, W, H, '#9b2f2a');
     }
+
+    // Pending curve: show draggable handles at both endpoints AND the control
+    // point so the user can tweak geometry without redrawing.
+    const pending = editorState.pending;
+    if (pending && pending.type === 'curve') {
+        drawVertexHandle(ctx, pending.x1, pending.y1, W, H, '#2a211a'); // start
+        drawVertexHandle(ctx, pending.x2, pending.y2, W, H, '#2a211a'); // end
+        drawVertexHandle(ctx, pending.cx, pending.cy, W, H, '#9b2f2a'); // control
+    }
+}
+
+// Small filled circle with a light ring — draws a handle at (px, py) given in
+// 0..100 shape coords. Color identifies the handle type (dark = endpoint,
+// accent red = control).
+function drawVertexHandle(ctx, px, py, W, H, color) {
+    const sx = W / 100, sy = H / 100;
+    const r = 6;
+    const x = px * sx, y = py * sy;
+    ctx.save();
+    ctx.fillStyle = '#fbf7ec';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+// Hit-test a point against the pending curve's vertex handles.
+// Returns 'x1' | 'x2' | 'cx' | null. Tolerance is in 0..100 units.
+function hitTestCurveHandle(curve, p) {
+    if (!curve || curve.type !== 'curve') return null;
+    const tol = 6;
+    const d2 = (ax, ay) => (p.x - ax) ** 2 + (p.y - ay) ** 2;
+    const cands = [
+        { key: 'cx', d: d2(curve.cx, curve.cy) }, // control point priority
+        { key: 'x1', d: d2(curve.x1, curve.y1) },
+        { key: 'x2', d: d2(curve.x2, curve.y2) },
+    ];
+    cands.sort((a, b) => a.d - b.d);
+    return cands[0].d < tol * tol ? cands[0].key : null;
 }
 
 function undoLastShape() {
@@ -611,13 +684,10 @@ function commitLiveText() {
     const text = (content.textContent || '').trim();
     editorState.textOverlayOpen = false;
 
-    // Snapshot geometry BEFORE hiding the overlay (hiding makes its rect zero).
     if (text) {
         const canvas = editorState.canvas;
         const canvasRect = canvas.getBoundingClientRect();
-        // Use the text's actual rendered bounding rect — not the overlay box,
-        // which includes the drag handle and centred whitespace. This keeps
-        // the committed text exactly where the user placed it.
+        // Range rect = the text's CSS line box (line-height:1 → equals em-box).
         const range = document.createRange();
         range.selectNodeContents(content);
         const rects = range.getClientRects();
@@ -633,8 +703,24 @@ function commitLiveText() {
             }
             if (maxR > minL) textRect = { left: minL, top: minT, right: maxR, bottom: maxB, width: maxR - minL, height: maxB - minT };
         }
+
+        // Find the glyph's actual visual centre using canvas measureText.
+        // CSS baseline inside a line-height:1 line box sits at top + fontBoundingBoxAscent;
+        // the glyph visual centre is (baseline + (desc - asc)/2).
+        const measureCtx = canvas.getContext('2d');
+        measureCtx.save();
+        measureCtx.font = `${editorState.textFontSize}px "Source Serif 4", Georgia, serif`;
+        measureCtx.textBaseline = 'alphabetic';
+        const m = measureCtx.measureText(text);
+        measureCtx.restore();
+        const asc = m.actualBoundingBoxAscent || editorState.textFontSize * 0.75;
+        const desc = m.actualBoundingBoxDescent || editorState.textFontSize * 0.25;
+        const fontAscent = m.fontBoundingBoxAscent || editorState.textFontSize * 0.8;
+        const cssBaselineViewport = textRect.top + fontAscent;
+        const glyphCentreViewport = cssBaselineViewport + (desc - asc) / 2;
+
         const centreX = ((textRect.left + textRect.width / 2) - canvasRect.left) / canvasRect.width * 100;
-        const centreY = ((textRect.top + textRect.height / 2) - canvasRect.top)  / canvasRect.height * 100;
+        const centreY = (glyphCentreViewport - canvasRect.top) / canvasRect.height * 100;
         const fontSize100 = editorState.textFontSize * 100 / canvasRect.width;
 
         editorState.shapes.push({

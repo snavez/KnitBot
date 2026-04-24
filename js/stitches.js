@@ -518,8 +518,18 @@ function drawUserStitchShapes(ctx, shapes, x, y, w, h) {
             ctx.fillStyle = stroke;
             ctx.font = `${Math.round(fs)}px "Source Serif 4", Georgia, serif`;
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(shape.text, offX + shape.x * scale, offY + shape.y * scale);
+            // Canvas baseline='middle' puts the EM-BOX middle at Y, which for
+            // cap-heavy characters like "K" sits well below the glyph's visual
+            // centre (em-box includes descender space that K doesn't use). We
+            // want (shape.x, shape.y) to land on the actual glyph centre the
+            // user positioned, so render with 'alphabetic' and shift the
+            // baseline by half the asc/desc imbalance.
+            ctx.textBaseline = 'alphabetic';
+            const m = ctx.measureText(shape.text);
+            const asc = m.actualBoundingBoxAscent || fs * 0.75;
+            const desc = m.actualBoundingBoxDescent || fs * 0.25;
+            const baselineY = offY + shape.y * scale - (desc - asc) / 2;
+            ctx.fillText(shape.text, offX + shape.x * scale, baselineY);
         }
     }
     ctx.restore();
