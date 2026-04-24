@@ -12,8 +12,10 @@ const editorState = {
     eraserActive: false,
     strokeWidth: 6,
     fillShapes: false,
-    shapes: [],
+    shapes: [],              // committed shapes, painted in order
+    pending: null,           // most-recently drawn shape — still editable
     drawing: null,           // shape in progress during a pointer drag
+    moving: null,            // { startPoint, origShape } while dragging pending
     canvas: null,
     ctx: null,
     detailedTouched: false,
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('stitch-editor-close').addEventListener('click', closeStitchEditor);
     document.getElementById('stitch-editor-cancel').addEventListener('click', closeStitchEditor);
     document.getElementById('stitch-editor-save').addEventListener('click', saveStitch);
+    document.getElementById('st-done').addEventListener('click', commitEditing);
     document.getElementById('st-undo').addEventListener('click', undoLastShape);
     document.getElementById('st-clear').addEventListener('click', clearCanvas);
 
@@ -39,18 +42,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('st-stroke-width').addEventListener('input', (e) => {
         editorState.strokeWidth = Number(e.target.value);
+        // Live-update the pending shape so the user sees the new stroke on the
+        // shape they just drew without having to redraw it.
+        if (editorState.pending) {
+            editorState.pending.strokeWidth = editorState.strokeWidth;
+            redrawCanvas();
+            renderPreview();
+        }
     });
     document.getElementById('st-fill-toggle').addEventListener('change', (e) => {
         editorState.fillShapes = e.target.checked;
+        if (editorState.pending && (editorState.pending.type === 'rect' || editorState.pending.type === 'ellipse')) {
+            if (editorState.fillShapes) editorState.pending.fill = editorState.pending.stroke;
+            else delete editorState.pending.fill;
+            redrawCanvas();
+            renderPreview();
+        }
     });
 
     // Live text-overlay wiring
     wireTextOverlay();
-    document.getElementById('st-text-commit').addEventListener('click', () => {
-        commitLiveText();
-        // Switch to Pen so the user can draw again immediately.
-        selectTool('freehand');
-    });
     document.getElementById('st-text-size').addEventListener('input', (e) => {
         editorState.textFontSize = Number(e.target.value);
         applyOverlayFontSize();
@@ -113,7 +124,9 @@ function resetEditor() {
     editorState.strokeWidth = 6;
     editorState.fillShapes = false;
     editorState.shapes = [];
+    editorState.pending = null;
     editorState.drawing = null;
+    editorState.moving = null;
     editorState.detailedTouched = false;
     editorState.textOverlayOpen = false;
     editorState.textFontSize = 72;
@@ -144,12 +157,11 @@ function renderColorSwatches() {
             editorState.stroke = c.hex;
             editorState.eraserActive = false;
             renderColorSwatches();
-            // When the Text tool is active, the swatch recolours the live overlay.
             if (editorState.textOverlayOpen) applyOverlayColour();
+            applyColourToPending();
         });
         host.appendChild(sw);
     }
-    // Eraser swatch — paints with the paper-bg colour, visually an X on paper.
     const eraser = document.createElement('button');
     eraser.className = 'st-swatch st-swatch-eraser' + (editorState.eraserActive ? ' active' : '');
     eraser.title = 'Eraser — paint with the paper colour to hide previous strokes';
@@ -158,15 +170,31 @@ function renderColorSwatches() {
         editorState.eraserActive = true;
         editorState.stroke = STITCH_COLORS.bg;
         renderColorSwatches();
+        if (editorState.textOverlayOpen) applyOverlayColour();
+        applyColourToPending();
     });
     host.appendChild(eraser);
 }
 
+// Push the current stroke colour (plus fill if the shape has one) to the
+// shape that's still in "editing" state. Called when the user changes a
+// swatch after drawing — the shape recolours in place, nothing commits.
+function applyColourToPending() {
+    const p = editorState.pending;
+    if (!p) return;
+    p.stroke = editorState.stroke;
+    if (p.fill) p.fill = editorState.stroke;
+    redrawCanvas();
+    renderPreview();
+}
+
 function selectTool(tool) {
-    // Switching AWAY from Text commits whatever the user was typing.
+    // Switching tools locks in any in-progress edits — the live text overlay
+    // or a still-pending drawn shape both become regular committed shapes.
     if (editorState.tool === 'text' && tool !== 'text') {
         commitLiveText();
     }
+    commitPending();
 
     editorState.tool = tool;
     document.querySelectorAll('#stitch-editor-modal .st-tool-btn').forEach(b => {
@@ -233,8 +261,22 @@ function onPointerDown(e) {
     const tool = editorState.tool;
     const base = currentShapeBase();
 
-    // The Text tool uses an HTML overlay (see showTextOverlay) — no canvas paint.
     if (tool === 'text') return;
+
+    // If there's a still-editable shape and the click is within its bounds,
+    // enter move mode: drag the whole shape instead of starting a new one.
+    if (editorState.pending && hitTestShape(editorState.pending, p)) {
+        editorState.moving = {
+            startPoint: p,
+            origShape: JSON.parse(JSON.stringify(editorState.pending)),
+        };
+        editorState.canvas.setPointerCapture?.(e.pointerId);
+        return;
+    }
+
+    // Starting a new shape commits the previous pending one so it stops
+    // responding to slider/swatch changes.
+    commitPending();
 
     editorState.canvas.setPointerCapture?.(e.pointerId);
 
@@ -243,8 +285,6 @@ function onPointerDown(e) {
     } else if (tool === 'line') {
         editorState.drawing = { type: 'line', x1: p.x, y1: p.y, x2: p.x, y2: p.y, ...base };
     } else if (tool === 'curve') {
-        // Track the whole drag trail so we can pick a control point that
-        // matches the arc the user drew. (Midpoint of the trail works well.)
         editorState.drawing = { type: 'curve', x1: p.x, y1: p.y, cx: p.x, cy: p.y, x2: p.x, y2: p.y, _trail: [p], ...base };
     } else if (tool === 'rect') {
         editorState.drawing = { type: 'rect', _startX: p.x, _startY: p.y, x: p.x, y: p.y, w: 0, h: 0, ...base };
@@ -255,8 +295,20 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
-    if (!editorState.drawing) return;
     const p = canvasToShape(e);
+
+    // Dragging the pending shape around
+    if (editorState.moving) {
+        const m = editorState.moving;
+        const dx = p.x - m.startPoint.x;
+        const dy = p.y - m.startPoint.y;
+        translateShape(editorState.pending, m.origShape, dx, dy);
+        redrawCanvas();
+        renderPreview();
+        return;
+    }
+
+    if (!editorState.drawing) return;
     const d = editorState.drawing;
     if (d.type === 'path') {
         d.points.push(p);
@@ -295,6 +347,10 @@ function onPointerMove(e) {
 }
 
 function onPointerUp() {
+    if (editorState.moving) {
+        editorState.moving = null;
+        return;
+    }
     if (!editorState.drawing) return;
     const d = editorState.drawing;
     let keep = true;
@@ -306,11 +362,72 @@ function onPointerUp() {
 
     if (keep) {
         delete d._startX; delete d._startY; delete d._trail;
-        editorState.shapes.push(d);
+        // Freehand (pen) strokes commit straight away — there's nothing
+        // useful to tweak afterwards. Everything else stays pending so the
+        // user can adjust colour/stroke/fill or drag it to a new spot.
+        if (d.type === 'path') {
+            editorState.shapes.push(d);
+        } else {
+            editorState.pending = d;
+        }
     }
     editorState.drawing = null;
     redrawCanvas();
     renderPreview();
+}
+
+// ---------- Pending shape helpers (move / hit-test / commit) ----------
+
+function shapeBoundingBox(s) {
+    if (!s) return null;
+    if (s.type === 'line' || s.type === 'curve') {
+        return {
+            minX: Math.min(s.x1, s.x2), maxX: Math.max(s.x1, s.x2),
+            minY: Math.min(s.y1, s.y2), maxY: Math.max(s.y1, s.y2),
+        };
+    }
+    if (s.type === 'rect') {
+        return { minX: s.x, maxX: s.x + s.w, minY: s.y, maxY: s.y + s.h };
+    }
+    if (s.type === 'ellipse') {
+        return { minX: s.cx - s.rx, maxX: s.cx + s.rx, minY: s.cy - s.ry, maxY: s.cy + s.ry };
+    }
+    return null;
+}
+
+function hitTestShape(s, p) {
+    const bb = shapeBoundingBox(s);
+    if (!bb) return false;
+    const pad = 3; // 0..100-unit tolerance so thin strokes are still easy to grab
+    return p.x >= bb.minX - pad && p.x <= bb.maxX + pad &&
+           p.y >= bb.minY - pad && p.y <= bb.maxY + pad;
+}
+
+function translateShape(target, orig, dx, dy) {
+    if (target.type === 'line' || target.type === 'curve') {
+        target.x1 = orig.x1 + dx; target.y1 = orig.y1 + dy;
+        target.x2 = orig.x2 + dx; target.y2 = orig.y2 + dy;
+        if ('cx' in orig) { target.cx = orig.cx + dx; target.cy = orig.cy + dy; }
+    } else if (target.type === 'rect') {
+        target.x = orig.x + dx; target.y = orig.y + dy;
+    } else if (target.type === 'ellipse') {
+        target.cx = orig.cx + dx; target.cy = orig.cy + dy;
+    }
+}
+
+function commitPending() {
+    if (!editorState.pending) return;
+    editorState.shapes.push(editorState.pending);
+    editorState.pending = null;
+    redrawCanvas();
+    renderPreview();
+}
+
+// Done button / explicit "lock everything in" — flushes pending shape and
+// the live text overlay, leaves the current tool active.
+function commitEditing() {
+    if (editorState.textOverlayOpen) commitLiveText();
+    commitPending();
 }
 
 function redrawCanvas() {
@@ -324,6 +441,7 @@ function redrawCanvas() {
     ctx.clearRect(0, 0, W, H);
 
     const allShapes = editorState.shapes.slice();
+    if (editorState.pending) allShapes.push(editorState.pending);
     if (editorState.drawing) allShapes.push(editorState.drawing);
 
     // Split into paint strokes and eraser strokes. Eraser strokes use
@@ -357,13 +475,22 @@ function redrawCanvas() {
 }
 
 function undoLastShape() {
-    editorState.shapes.pop();
+    // If a shape is still being edited, Undo throws it away rather than
+    // popping a committed one — matches what "undo" feels like mid-edit.
+    if (editorState.pending) {
+        editorState.pending = null;
+    } else {
+        editorState.shapes.pop();
+    }
     redrawCanvas();
     renderPreview();
 }
 
 function clearCanvas() {
     editorState.shapes = [];
+    editorState.pending = null;
+    editorState.drawing = null;
+    editorState.moving = null;
     redrawCanvas();
     renderPreview();
 }
@@ -374,7 +501,9 @@ function renderPreview() {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = STITCH_COLORS.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawUserStitchShapes(ctx, editorState.shapes, 0, 0, canvas.width, canvas.height);
+    const shapes = editorState.shapes.slice();
+    if (editorState.pending) shapes.push(editorState.pending);
+    drawUserStitchShapes(ctx, shapes, 0, 0, canvas.width, canvas.height);
 }
 
 // ---------- Live text overlay ----------
@@ -486,9 +615,26 @@ function commitLiveText() {
     if (text) {
         const canvas = editorState.canvas;
         const canvasRect = canvas.getBoundingClientRect();
-        const overlayRect = overlay.getBoundingClientRect();
-        const centreX = ((overlayRect.left + overlayRect.width / 2) - canvasRect.left) / canvasRect.width * 100;
-        const centreY = ((overlayRect.top + overlayRect.height / 2) - canvasRect.top)  / canvasRect.height * 100;
+        // Use the text's actual rendered bounding rect — not the overlay box,
+        // which includes the drag handle and centred whitespace. This keeps
+        // the committed text exactly where the user placed it.
+        const range = document.createRange();
+        range.selectNodeContents(content);
+        const rects = range.getClientRects();
+        let textRect = range.getBoundingClientRect();
+        if (rects.length > 0) {
+            let minL = Infinity, minT = Infinity, maxR = -Infinity, maxB = -Infinity;
+            for (const r of rects) {
+                if (r.width === 0 || r.height === 0) continue;
+                minL = Math.min(minL, r.left);
+                minT = Math.min(minT, r.top);
+                maxR = Math.max(maxR, r.right);
+                maxB = Math.max(maxB, r.bottom);
+            }
+            if (maxR > minL) textRect = { left: minL, top: minT, right: maxR, bottom: maxB, width: maxR - minL, height: maxB - minT };
+        }
+        const centreX = ((textRect.left + textRect.width / 2) - canvasRect.left) / canvasRect.width * 100;
+        const centreY = ((textRect.top + textRect.height / 2) - canvasRect.top)  / canvasRect.height * 100;
         const fontSize100 = editorState.textFontSize * 100 / canvasRect.width;
 
         editorState.shapes.push({
@@ -520,8 +666,9 @@ function onCodeInput(e) {
 // ---------- Save ----------
 
 async function saveStitch() {
-    // Snapshot any in-flight text so it doesn't get thrown away on save.
+    // Lock in anything still in edit mode so it's included in the saved shapes.
     if (editorState.textOverlayOpen) commitLiveText();
+    commitPending();
 
     const code = document.getElementById('st-code').value.trim();
     const detailed = document.getElementById('st-detailed').value.trim();

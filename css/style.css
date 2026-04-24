@@ -1877,10 +1877,12 @@ body.knit-active .workbench {
     border-top: 1px solid var(--border);
 }
 .modal-footer button {
-    padding: 7px 18px;
-    /* Match the workbench panel buttons (+ Add Stitch Type, Preview pattern, etc.) */
+    /* Exact match for the workbench .panel-btn-wide typography (+ Add Stitch Type, Preview pattern, etc.) */
+    padding: 8px 16px;
     font-family: var(--serif);
-    font-size: 0.92rem;
+    font-size: 0.82rem;
+    font-weight: 400;
+    text-align: center;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text);
