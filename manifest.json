@@ -1,6 +1,6 @@
 {
-  "name": "KnitBot - Knitting Pattern Designer",
-  "short_name": "KnitBot",
+  "name": "Knitwit - Knitting Pattern Designer",
+  "short_name": "Knitwit",
   "description": "Design knitting patterns with colourwork, cables, lace, and texture. Generate instructions and print patterns.",
   "start_url": "./index.html",
   "display": "standalone",

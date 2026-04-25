@@ -316,30 +316,32 @@ function drawHoleCell(ctx, x, y, w, h) {
 
 const BUILTIN_STITCHES = [
     {
-        id: 'knit', label: 'Knit', title: 'Knit stitch',
+        id: 'knit', label: 'K', sublabel: 'knit',
+        title: 'Knit stitch (K)',
         kind: 'simple', code: 'K', printSymbol: 'V',
         drawIcon: (ctx, s) => drawKnitTileIcon(ctx, s),
         drawCell: drawKnitCell,
         order: 10,
     },
     {
-        id: 'purl', label: 'Purl', title: 'Purl stitch',
+        id: 'purl', label: 'P', sublabel: 'purl',
+        title: 'Purl stitch (P)',
         kind: 'simple', code: 'P', printSymbol: '\u2013',
         drawIcon: (ctx, s) => drawPurlTileIcon(ctx, s),
         drawCell: drawPurlCell,
         order: 20,
     },
     {
-        id: 'left-cross', label: 'Left X', sublabel: 'CF',
-        title: 'Left Cross — select cells, then click to apply. Reads K/P from row below to determine crossing.',
+        id: 'left-cross', label: 'CF', sublabel: 'left x',
+        title: 'Cable Front (left cross) — click and drag across a row of 2–8 cells to apply. Reads K/P from the row below to determine the crossing.',
         kind: 'cross', dir: 'left',
         drawIcon: (ctx, s) => drawCrossTileIcon(ctx, s, 'left'),
         drawCell: null, // rendered by drawCrossingOverlay in cables.js
         order: 30,
     },
     {
-        id: 'right-cross', label: 'Right X', sublabel: 'CB',
-        title: 'Right Cross — select cells, then click to apply. Reads K/P from row below to determine crossing.',
+        id: 'right-cross', label: 'CB', sublabel: 'right x',
+        title: 'Cable Back (right cross) — click and drag across a row of 2–8 cells to apply. Reads K/P from the row below to determine the crossing.',
         kind: 'cross', dir: 'right',
         drawIcon: (ctx, s) => drawCrossTileIcon(ctx, s, 'right'),
         drawCell: null,
@@ -380,8 +382,8 @@ const BUILTIN_STITCHES = [
         order: 80,
     },
     {
-        id: 'hole', label: 'Hole', sublabel: 'YO',
-        title: 'Lace hole — becomes YO in instructions',
+        id: 'hole', label: 'YO', sublabel: 'hole',
+        title: 'Yarn over (lace hole)',
         kind: 'simple', code: 'YO', printSymbol: '\u25CB',
         drawIcon: (ctx, s) => drawHoleTileIcon(ctx, s),
         drawCell: drawHoleCell,
@@ -539,12 +541,17 @@ function drawUserStitchShapes(ctx, shapes, x, y, w, h) {
 // the drawIcon/drawCell functions the palette and grid renderer expect.
 function hydrateUserStitch(record) {
     const shapes = record.shapes || [];
+    const multiCell = !!record.multiCell;
     return {
         id: record.id,
         label: record.label || record.id,
         sublabel: record.sublabel || null,
         title: record.title || record.detailedInstructions || `Custom stitch: ${record.id}`,
-        kind: 'simple',
+        // Multi-cell user stitches are placed via click-and-drag (like the
+        // built-in cable crosses) and rendered with one full-opacity icon at
+        // the lead cell + faint echoes elsewhere.
+        kind: multiCell ? 'user-multi' : 'simple',
+        multiCell,
         code: record.code || record.id,
         printSymbol: record.code || record.id, // printed in the chart table
         printSymbolFontPt: (record.code && record.code.length > 1) ? 6 : undefined,
@@ -554,7 +561,7 @@ function hydrateUserStitch(record) {
         order: record.order ?? 500,
         drawIcon: (ctx, s) => drawUserStitchShapes(ctx, shapes, 0, 0, s, s),
         drawCell: (ctx, x, y, w, h) => drawUserStitchShapes(ctx, shapes, x, y, w, h),
-        _record: record, // keep the raw record so the gallery editor can round-trip it
+        _record: record,
     };
 }
 
@@ -573,8 +580,13 @@ const StitchRegistry = {
     isSimple(id)  { return this.isKind(id, 'simple'); },
     isCross(id)   { return this.isKind(id, 'cross'); },
     isErase(id)   { return id === 'stitch-erase'; },
-    // True for anything the click-or-drag paint handler should treat as a
-    // single-cell paint (everything except cross, which uses drag).
+    // User-defined stitch placed via click+drag across multiple cells.
+    isUserMulti(id) { return this.isKind(id, 'user-multi'); },
+    // Anything that drag-places (cross + user-multi) needs the cable-style
+    // mousedown→mouseup path, not the simple paint path.
+    isDragPlaced(id) { return this.isCross(id) || this.isUserMulti(id); },
+    // Single-cell paintable: simple stitches + the eraser. Multi-cell types
+    // are excluded so they don't paint per-cell on click.
     isPaintable(id) { return this.isSimple(id) || this.isErase(id); },
     // Notation code used when generating knitting instructions.
     codeFor(id) { return this.get(id)?.code ?? null; },

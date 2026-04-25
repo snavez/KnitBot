@@ -14,6 +14,10 @@ const editorState = {
     // Fill colour for rect/ellipse — independent of the stroke colour.
     // null = "no fill" (stroke-only shape).
     fill: null,
+    // True for stitches placed by click-and-drag across 2+ cells (like the
+    // built-in cable crosses). The icon renders once on the lead cell with
+    // faint echoes on the flanking cells.
+    multiCell: false,
     shapes: [],              // committed shapes, painted in order
     pending: null,           // most-recently drawn shape — still editable
     drawing: null,           // shape in progress during a pointer drag
@@ -41,6 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('#stitch-editor-modal .st-tool-btn').forEach(b => {
         b.addEventListener('click', () => selectTool(b.dataset.tool));
+    });
+
+    document.getElementById('st-multi-cell').addEventListener('change', (e) => {
+        editorState.multiCell = e.target.checked;
     });
 
     document.getElementById('st-stroke-width').addEventListener('input', (e) => {
@@ -84,8 +92,10 @@ function openStitchEditor(existing = null) {
         editorState.mode = 'edit';
         editorState.editingId = existing.id;
         editorState.shapes = JSON.parse(JSON.stringify(existing.shapes || []));
+        editorState.multiCell = !!existing.multiCell;
         document.getElementById('st-code').value = existing.code || existing.id;
         document.getElementById('st-detailed').value = existing.detailedInstructions || '';
+        document.getElementById('st-multi-cell').checked = editorState.multiCell;
         editorState.detailedTouched = !!existing.detailedInstructions;
         document.getElementById('stitch-editor-title').textContent = `Edit Stitch: ${existing.label || existing.id}`;
         document.getElementById('stitch-editor-save').textContent = 'Save changes';
@@ -120,6 +130,7 @@ function resetEditor() {
     editorState.eraserActive = false;
     editorState.strokeWidth = 6;
     editorState.fill = null;
+    editorState.multiCell = false;
     editorState.shapes = [];
     editorState.pending = null;
     editorState.drawing = null;
@@ -133,6 +144,7 @@ function resetEditor() {
     document.getElementById('st-detailed').value = '';
     document.getElementById('st-stroke-width').value = '6';
     document.getElementById('st-text-size').value = '72';
+    document.getElementById('st-multi-cell').checked = false;
     document.getElementById('st-text-row').style.display = 'none';
     hideTextOverlay({ commit: false });
     document.querySelectorAll('#stitch-editor-modal .st-tool-btn').forEach(b => {
@@ -866,6 +878,7 @@ async function saveStitch() {
         code,
         detailedInstructions: detailed,
         shapes: editorState.shapes,
+        multiCell: editorState.multiCell,
         source: 'user',
         order: existing?.order ?? 500,
         createdAt: existing?._record?.createdAt ?? Date.now(),

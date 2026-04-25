@@ -136,7 +136,7 @@ function bindStitchEvents() {
             return;
         }
 
-        if (isCrossStitch(state.activeStitch)) {
+        if (StitchRegistry.isDragPlaced(state.activeStitch)) {
             e.preventDefault();
             e.stopPropagation();
             state.cableDragStart = { row: r, col: c };
@@ -156,7 +156,7 @@ function bindStitchEvents() {
             return;
         }
 
-        if (state.cableDragStart && isCrossStitch(state.activeStitch)) {
+        if (state.cableDragStart && StitchRegistry.isDragPlaced(state.activeStitch)) {
             const maxW = 8;
             let endCol = c;
             const startCol = state.cableDragStart.col;
@@ -175,9 +175,15 @@ function bindStitchEvents() {
             pushHistory();
             return;
         }
-        if (state.cableDragStart && isCrossStitch(state.activeStitch)) {
-            commitCross();
-            return;
+        if (state.cableDragStart) {
+            if (isCrossStitch(state.activeStitch)) {
+                commitCross();
+                return;
+            }
+            if (StitchRegistry.isUserMulti(state.activeStitch)) {
+                commitUserMulti();
+                return;
+            }
         }
     });
 }
@@ -418,6 +424,57 @@ function clearCableDrag() {
 }
 
 // ========================================
+// MULTI-CELL USER STITCH PLACEMENT
+// ========================================
+// User-defined stitches with multiCell=true behave like cable crosses for
+// placement: the user click+drags across 2..8 cells. The icon paints once
+// at the lead cell (left-of-centre for even widths, exact centre for odd)
+// and faintly on every flanking cell so the run still reads as an occupied
+// block. Each placement gets a unique group id so the eraser can clear the
+// whole run and the instructions can collapse it to a single-token run.
+let userMultiIdCounter = 0;
+function commitUserMulti() {
+    if (!state.cableDragStart || !state.cableDragEnd) {
+        clearCableDrag();
+        return;
+    }
+
+    const row = state.cableDragStart.row;
+    const minC = Math.min(state.cableDragStart.col, state.cableDragEnd.col);
+    const maxC = Math.max(state.cableDragStart.col, state.cableDragEnd.col);
+    const width = maxC - minC + 1;
+
+    if (width < 2) {
+        showToast('Multi-cell stitches need at least two cells — click and drag.');
+        clearCableDrag();
+        return;
+    }
+
+    const stitchId = state.activeStitch;
+    const def = StitchRegistry.get(stitchId);
+    if (!def) { clearCableDrag(); return; }
+
+    const lead = Math.floor((width - 1) / 2);
+    const groupId = 'um' + (++userMultiIdCounter);
+    if (state.stitchGrid[row]) {
+        for (let c = minC; c <= maxC; c++) {
+            state.stitchGrid[row][c] = {
+                type: 'user-multi',
+                stitchId,
+                id: groupId,
+                width,
+                pos: c - minC,
+                lead,
+            };
+        }
+    }
+
+    clearCableDrag();
+    renderStitchOverlay();
+    pushHistory();
+}
+
+// ========================================
 // STITCH OVERLAY RENDERING
 // ========================================
 function renderStitchOverlay() {
@@ -460,8 +517,25 @@ function renderStitchOverlay() {
             const y = r * stepY;
 
             if (typeof stitch === 'object') {
-                // Crossing — rendered by the cluster-aware overlay below
-                if (!drawnCrossings.has(stitch.id)) {
+                if (stitch.type === 'user-multi') {
+                    // Render the multi-cell run once: lead cell full opacity,
+                    // flanks at low alpha as visual "occupied" markers.
+                    if (!drawnCrossings.has(stitch.id)) {
+                        drawnCrossings.add(stitch.id);
+                        const def = StitchRegistry.get(stitch.stitchId);
+                        if (def && typeof def.drawCell === 'function') {
+                            const startCol = c - stitch.pos;
+                            for (let p = 0; p < stitch.width; p++) {
+                                const cellX = (startCol + p) * stepX;
+                                ctx.save();
+                                if (p !== stitch.lead) ctx.globalAlpha = 0.18;
+                                def.drawCell(ctx, cellX, y, cellW, cellH);
+                                ctx.restore();
+                            }
+                        }
+                    }
+                } else if (!drawnCrossings.has(stitch.id)) {
+                    // Cluster-aware crossing
                     drawnCrossings.add(stitch.id);
                     const startX = (c - stitch.pos) * stepX;
                     drawCrossingOverlay(ctx, startX, y, cellW, cellH, stitch, gap);

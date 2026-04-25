@@ -221,9 +221,12 @@ function formatInstructionsText(pattern, mode) {
         for (const row of stitchRegion) {
             if (!row) continue;
             for (const s of row) {
-                if (typeof s === 'string') {
-                    const def = StitchRegistry.get(s);
-                    if (def && def.source === 'user') usedUserIds.add(s);
+                let id = null;
+                if (typeof s === 'string') id = s;
+                else if (s && typeof s === 'object' && s.type === 'user-multi') id = s.stitchId;
+                if (id) {
+                    const def = StitchRegistry.get(id);
+                    if (def && def.source === 'user') usedUserIds.add(id);
                 }
             }
         }
@@ -319,8 +322,21 @@ function encodeRowWithStitches(colorRow, stitchRow, defaultSt, labelMap, reverse
             processed.add(stitch.id);
             const color = colorRow[c];
 
-            const notation = buildCrossingNotation(stitch);
+            // Multi-cell user stitches collapse the run into one token.
+            if (stitch.type === 'user-multi') {
+                const def = (typeof StitchRegistry !== 'undefined') ? StitchRegistry.get(stitch.stitchId) : null;
+                const code = (def && def.code) || stitch.stitchId || '?';
+                if (hasColors && color !== null) {
+                    const colorLabel = color === null ? 'BG' : (labelMap[color] || color);
+                    tokens.push({ text: code + ' in ' + colorLabel, span: stitch.width });
+                } else {
+                    tokens.push({ text: code, span: stitch.width });
+                }
+                c += stitch.width - 1;
+                continue;
+            }
 
+            const notation = buildCrossingNotation(stitch);
             if (hasColors && color !== null) {
                 const colorLabel = color === null ? 'BG' : (labelMap[color] || color);
                 tokens.push({ text: notation + ' in ' + colorLabel, span: stitch.width });

@@ -662,6 +662,9 @@ function collectUsedUserStitches() {
         if (!row) continue;
         for (const s of row) {
             if (typeof s === 'string') used.add(s);
+            else if (s && typeof s === 'object' && s.type === 'user-multi' && s.stitchId) {
+                used.add(s.stitchId);
+            }
         }
     }
     const records = [];
@@ -942,28 +945,32 @@ function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
 }
 
+// Persistent toast — sits at the bottom-centre with a soft accent-tinted
+// background and stays visible until the user dismisses it via the × button.
+// Stack multiple toasts vertically; clicking × on any one pulls the rest down.
 function showToast(msg) {
-    const toast = document.createElement('div');
-    toast.textContent = msg;
-    toast.style.cssText = `
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        background: var(--accent); color: #111; padding: 8px 20px; border-radius: 4px;
-        font-size: 0.85rem; font-weight: 600; z-index: 200;
-        animation: fadeOut 1.5s ease forwards;
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 1600);
-}
-
-// Add fadeOut animation
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    @keyframes fadeOut {
-        0%, 60% { opacity: 1; }
-        100% { opacity: 0; }
+    let stack = document.getElementById('toast-stack');
+    if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'toast-stack';
+        stack.className = 'toast-stack';
+        document.body.appendChild(stack);
     }
-`;
-document.head.appendChild(styleSheet);
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    const text = document.createElement('span');
+    text.className = 'toast-text';
+    text.textContent = msg;
+    const close = document.createElement('button');
+    close.className = 'toast-close';
+    close.setAttribute('aria-label', 'Dismiss');
+    close.title = 'Dismiss';
+    close.innerHTML = '&times;';
+    close.addEventListener('click', () => toast.remove());
+    toast.appendChild(text);
+    toast.appendChild(close);
+    stack.appendChild(toast);
+}
 
 // === Pattern region ===
 // The "pattern" is whatever the user will get instructions / knit mode for.
