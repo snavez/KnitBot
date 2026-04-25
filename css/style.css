@@ -1903,7 +1903,7 @@ body.knit-active .workbench {
    double-classed so it beats the .stitch-editor-right label rule. */
 .stitch-editor-right .st-multicell-toggle {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     font-family: var(--serif);
     font-size: 0.82rem;
@@ -1962,6 +1962,134 @@ body.knit-active .workbench {
 .modal-footer button:hover { background: var(--surface-hover); }
 .modal-footer button.btn-primary:hover { background: #1a1410; }
 
+/* === Stitch Gallery overlay === */
+.modal.gallery-modal { width: 720px; max-width: 92vw; }
+/* Match the workbench panel-section-title style ("PALETTE", "TOOL"…) so the
+   overlay reads as a deeper view of the same UI rather than a separate app. */
+.modal.gallery-modal .modal-header h2,
+.modal.confirm-modal .modal-header h2 {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0;
+}
+.gallery-body { padding: 18px 20px; }
+/* Body copy mirrors the .dimension-label / .panel-section-hint style — same
+   mono family the workbench uses for "Height" / "Width" / row hints. */
+.gallery-hint {
+    margin: 0 0 12px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+}
+/* 4-column tile grid. Each tile mirrors the palette's .stitch-tile look so
+   the gallery feels like a richer view of the same component. */
+.gallery-list {
+    display: grid;
+    /* minmax(0, 1fr) lets columns shrink below intrinsic content width so
+       long stitch codes (P4into1, K5into1) ellipsis-truncate inside the tile
+       instead of forcing the row to overflow horizontally. */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    max-height: 56vh;
+    overflow-y: auto;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+}
+.gallery-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, opacity 0.15s;
+    min-height: 48px;
+    /* Inactive tiles read as "available but not in use" — muted, but still
+       legible. Active tiles override this below. */
+    opacity: 0.55;
+}
+.gallery-item:hover {
+    background: var(--surface-hover);
+    border-color: var(--text-soft);
+    opacity: 0.85;
+}
+.gallery-item.is-active {
+    opacity: 1;
+    border-color: var(--selection);
+    background: var(--selection-soft);
+    box-shadow: inset 0 0 0 1px var(--selection);
+}
+.gallery-item.is-active:hover {
+    background: var(--selection-soft);
+}
+.gallery-item.is-locked {
+    cursor: not-allowed;
+}
+.gallery-item.is-locked:hover {
+    /* Locked stays put — no hover lift, since clicking does nothing. */
+    background: var(--selection-soft);
+    border-color: var(--selection);
+}
+.gallery-item-icon,
+.gallery-item-glyph {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--serif);
+    color: var(--text);
+}
+.gallery-item-text {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+    gap: 1px;
+    overflow: hidden;
+}
+.gallery-item-code {
+    font-family: var(--serif);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.gallery-item.is-active .gallery-item-code {
+    color: var(--selection-deep, #4f6a42);
+}
+.gallery-item-sub {
+    font-family: var(--serif);
+    font-size: 0.72rem;
+    font-weight: 500;
+    font-style: italic;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+.gallery-footer { justify-content: flex-end; }
+
 /* === Toast notifications === */
 .toast-stack {
     position: fixed;
@@ -2007,6 +2135,38 @@ body.knit-active .workbench {
 .toast-close:hover {
     color: var(--text);
     background: rgba(42,33,26,0.08);
+}
+.toast {
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.toast.toast-fading {
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+/* === Styled confirm dialog (replaces window.confirm) === */
+.modal.confirm-modal { width: 460px; max-width: 92vw; }
+.confirm-body { padding: 18px 20px; }
+.confirm-message {
+    margin: 0;
+    /* Match the workbench's small-text style (mono, muted). The bullet
+       list of stitch ids inside still wraps nicely. */
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    /* Newlines and bullet lists in the message render as written. */
+    white-space: pre-line;
+}
+.confirm-footer { padding: 12px 20px; }
+.modal-footer button.btn-danger {
+    background: #9b2f2a;
+    color: #fbf7ec;
+    border-color: #9b2f2a;
+}
+.modal-footer button.btn-danger:hover {
+    background: #7d2521;
+    border-color: #7d2521;
 }
 
 /* Right-click Edit/Delete menu on user-stitch tiles */

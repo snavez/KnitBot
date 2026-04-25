@@ -122,6 +122,18 @@ function closeStitchEditor() {
     modal.classList.remove('open');
     modal.style.display = 'none';
     editorState.open = false;
+    // Dismiss any validation/error toasts raised from inside the editor.
+    // Success toasts (shown after close) aren't tagged, so they survive.
+    document.querySelectorAll('.toast.toast-editor').forEach(t => t.remove());
+}
+
+// Raise a toast tagged as editor-linked so closeStitchEditor can clear it.
+// Use for validation/error messages shown while the overlay is open.
+function showEditorToast(msg) {
+    showToast(msg);
+    const stack = document.getElementById('toast-stack');
+    const last = stack && stack.lastElementChild;
+    if (last) last.classList.add('toast-editor');
 }
 
 function resetEditor() {
@@ -556,13 +568,25 @@ function redrawCanvas() {
 
     // Walk shapes in z-order. Erase strokes punch holes via destination-out
     // so they only affect what's BENEATH them on the canvas — anything drawn
-    // afterwards layers cleanly on top, no longer "ink-phobic".
+    // afterwards layers cleanly on top, no longer "ink-phobic". A coloured
+    // fill paired with an erase stroke must NOT be punched out — only the
+    // stroke ring erases, and the fill paints normally on top (matching the
+    // tile-preview / chart behaviour).
     const isEraseShape = (s) => s && s.stroke === STITCH_COLORS.bg;
+    const hasColouredFill = (s) => s && s.fill && s.fill !== STITCH_COLORS.bg;
     for (const s of allShapes) {
         if (isEraseShape(s)) {
+            // Fill first (transparent stroke so it doesn't double-paint),
+            // then punch the stroke ring with destination-out. Mirrors the
+            // tile-preview order (fill then bg-coloured stroke overpaints),
+            // so the inner half of the erase ring eats into the new fill
+            // exactly like the bg stroke does in the preview.
+            if (hasColouredFill(s)) {
+                drawUserStitchShapes(ctx, [{ ...s, stroke: 'rgba(0,0,0,0)' }], 0, 0, W, H);
+            }
             ctx.save();
             ctx.globalCompositeOperation = 'destination-out';
-            drawUserStitchShapes(ctx, [s], 0, 0, W, H);
+            drawUserStitchShapes(ctx, [{ ...s, fill: null }], 0, 0, W, H);
             ctx.restore();
         } else {
             drawUserStitchShapes(ctx, [s], 0, 0, W, H);
@@ -844,12 +868,12 @@ async function saveStitch() {
     const detailed = document.getElementById('st-detailed').value.trim();
 
     if (!code) {
-        showToast('Give the stitch a code first (e.g. "C4B").');
+        showEditorToast('Give the stitch a code first (e.g. "C4B").');
         document.getElementById('st-code').focus();
         return;
     }
     if (editorState.shapes.length === 0) {
-        showToast('Draw something on the canvas before saving.');
+        showEditorToast('Draw something on the canvas before saving.');
         return;
     }
 
@@ -859,9 +883,25 @@ async function saveStitch() {
 
     if (!isEditingSame) {
         if (existing && existing.source !== 'user') {
-            if (!confirm(`"${code}" is a built-in stitch. Saving will override it with your custom drawing. Continue?`)) return;
+            const choice = await confirmDialog({
+                title: 'Override built-in stitch?',
+                message: `"${code}" is a built-in stitch. Saving will override it with your custom drawing.`,
+                buttons: [
+                    { id: 'cancel', label: 'Cancel' },
+                    { id: 'continue', label: 'Override', kind: 'primary' },
+                ],
+            });
+            if (choice !== 'continue') return;
         } else if (existing && existing.source === 'user') {
-            if (!confirm(`A user stitch with code "${code}" already exists. Overwrite it?`)) return;
+            const choice = await confirmDialog({
+                title: 'Replace existing stitch?',
+                message: `A user stitch with code "${code}" already exists in your gallery. Overwrite it with this drawing?`,
+                buttons: [
+                    { id: 'cancel', label: 'Cancel' },
+                    { id: 'overwrite', label: 'Overwrite', kind: 'primary' },
+                ],
+            });
+            if (choice !== 'overwrite') return;
         }
     }
 
@@ -894,11 +934,14 @@ async function saveStitch() {
         await saveUserStitchToDB(record);
     } catch (err) {
         console.error('Failed to save stitch', err);
-        showToast('Could not save — ' + (err?.message || 'unknown error'));
+        showEditorToast('Could not save — ' + (err?.message || 'unknown error'));
         return;
     }
 
     StitchRegistry.upsertUserStitch(record);
+    // A stitch you just created/edited belongs in the current project's
+    // palette. The gallery toggle gives the user a way to hide it later.
+    if (typeof state !== 'undefined' && state.activeStitches) state.activeStitches.add(id);
     document.dispatchEvent(new CustomEvent('stitch-registry-updated'));
     closeStitchEditor();
     showToast(editorState.mode === 'edit'
@@ -911,7 +954,15 @@ async function saveStitch() {
 async function deleteUserStitch(id) {
     const def = StitchRegistry.get(id);
     if (!def || def.source !== 'user') return;
-    if (!confirm(`Delete the custom stitch "${def.label || id}"? Any cells using it will fall back to plain knit.`)) return;
+    const choice = await confirmDialog({
+        title: 'Delete stitch?',
+        message: `Delete the custom stitch "${def.label || id}"? Any cells using it will fall back to plain knit.`,
+        buttons: [
+            { id: 'cancel', label: 'Cancel' },
+            { id: 'delete', label: 'Delete', kind: 'danger' },
+        ],
+    });
+    if (choice !== 'delete') return;
     try {
         await deleteUserStitchFromDB(id);
     } catch (err) {
@@ -924,5 +975,7 @@ async function deleteUserStitch(id) {
     document.dispatchEvent(new CustomEvent('stitch-registry-updated'));
     // Ensure the grid re-renders in case the deleted stitch was on it.
     if (typeof renderStitchOverlay === 'function') renderStitchOverlay();
-    showToast(`"${def.label || id}" deleted.`);
+    // Per user request, no success toast — the tile vanishing from the
+    // palette is confirmation enough, and the dialog already required two
+    // intentional clicks.
 }

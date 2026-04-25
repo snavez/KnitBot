@@ -32,7 +32,64 @@ const state = {
     // Cable placement
     cableDragStart: null, // { row, col } when dragging a cable
     cableDragEnd: null,
+    // Stitches the user wants visible in the palette for THIS pattern. Set of
+    // string ids; built-ins and user stitches alike participate. The effective
+    // active set (see getEffectiveActiveStitches) also unions in anything used
+    // by the grid + the always-on Erase tool, so a stitch can never go
+    // un-selectable just because it was toggled off.
+    activeStitches: null,
 };
+
+// New-project default: the ten built-in stitches the palette has historically
+// shown out of the box. Erase tool is always-on outside this set.
+function defaultActiveStitches() {
+    return new Set([
+        'knit', 'purl', 'left-cross', 'right-cross',
+        'k-right', 'k-left', 'm1r', 'm1l', 'hole', 'no-stitch',
+    ]);
+}
+
+// Stitch ids actually placed in the current chart. Used to (a) keep grid-used
+// stitches visible in the palette regardless of toggle state, and (b) prevent
+// the gallery overlay from deactivating something that's in use.
+function getStitchesUsedInGrid() {
+    const used = new Set();
+    for (const row of state.stitchGrid || []) {
+        if (!row) continue;
+        for (const s of row) {
+            if (!s) continue;
+            if (typeof s === 'string') used.add(s);
+            else if (typeof s === 'object') {
+                if (s.type === 'cross') used.add(s.dir === 'left' ? 'left-cross' : 'right-cross');
+                else if (s.type === 'user-multi' && s.stitchId) used.add(s.stitchId);
+            }
+        }
+    }
+    return used;
+}
+
+// Palette filter: explicit active set ∪ grid-used ∪ erase. A null
+// state.activeStitches (legacy file with no list) falls back to "show every
+// known stitch", matching pre-gallery behaviour.
+function getEffectiveActiveStitches() {
+    const active = state.activeStitches
+        ? new Set(state.activeStitches)
+        : new Set((typeof StitchRegistry !== 'undefined' ? StitchRegistry.getAll() : []).map(s => s.id));
+    for (const id of getStitchesUsedInGrid()) active.add(id);
+    active.add('stitch-erase');
+    return active;
+}
+
+// Grid-cell ids that aren't in the registry — typically a borrowed pattern
+// referencing a custom stitch the recipient doesn't have. Reported on Load.
+function getMissingGridStitches() {
+    if (typeof StitchRegistry === 'undefined') return [];
+    const missing = new Set();
+    for (const id of getStitchesUsedInGrid()) {
+        if (!StitchRegistry.hasId(id)) missing.add(id);
+    }
+    return [...missing];
+}
 
 // Atelier palette — warm, natural, earthy tones.
 // Each hue occupies the same 1:1 slot as the old bright palette.
@@ -54,6 +111,7 @@ const COLORS = [
 // === Init ===
 document.addEventListener('DOMContentLoaded', () => {
     state.activeColor = COLORS[0];
+    state.activeStitches = defaultActiveStitches();
     initPalette();
     initGrid(state.rows, state.cols);
     bindEvents();
@@ -637,6 +695,16 @@ function restorePatternData(data) {
     state.knittingMode = data.knittingMode || 'flat';
     state.firstRow = data.firstRow || 'RS';
     state.customInstructions = data.customInstructions || null;
+    if (Array.isArray(data.activeStitches)) {
+        state.activeStitches = new Set(data.activeStitches);
+    } else {
+        // Legacy pattern file with no active list — preserve the old behaviour
+        // (every known stitch visible) so loading it doesn't silently shrink
+        // the palette. The user can prune via the gallery overlay.
+        state.activeStitches = new Set(
+            (typeof StitchRegistry !== 'undefined' ? StitchRegistry.getAll() : []).map(s => s.id)
+        );
+    }
     document.getElementById('grid-rows').value = state.rows;
     document.getElementById('grid-cols').value = state.cols;
     document.getElementById('pattern-name').value = state.patternName;
@@ -645,6 +713,10 @@ function restorePatternData(data) {
     const firstRowRadio = document.querySelector(`input[name="first-row"][value="${state.firstRow}"]`);
     if (firstRowRadio) firstRowRadio.checked = true;
     updateFirstRowPickerVisibility();
+    // The active set changed, so the palette must reflect it (built-ins may
+    // have been hidden, or new user stitches added that the loaded project
+    // wants visible).
+    if (typeof initStitchPalette === 'function') initStitchPalette();
     renderGrid();
     state.history = [];
     state.historyIndex = -1;
@@ -707,6 +779,10 @@ function saveToFile() {
         customInstructions: state.customInstructions,
         // Custom stitches the pattern depends on. Empty array if none used.
         userStitches: collectUsedUserStitches(),
+        // Which stitches the palette is showing for this project. Loader
+        // restores this verbatim; legacy files without it fall back to
+        // "everything visible" (see restorePatternData).
+        activeStitches: state.activeStitches ? [...state.activeStitches] : [],
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -879,34 +955,14 @@ function loadFromFile() {
 }
 
 // Import any custom-stitch definitions the pattern file carries with it.
-// Each one is added to the registry and persisted to IndexedDB so it stays
-// usable in future sessions on this device. Built-in ids are skipped — a
-// pattern file shouldn't be able to overwrite the app's own stitch library.
+// Delegates to mergeUserStitches (gallery.js) so pattern-file imports and
+// gallery-file imports share the same collision-prompt UX.
 async function importUserStitchesFromPattern(data) {
     const list = Array.isArray(data && data.userStitches) ? data.userStitches : [];
-    if (list.length === 0 || typeof StitchRegistry === 'undefined') {
-        return { imported: 0, skipped: 0 };
+    if (list.length === 0 || typeof mergeUserStitches !== 'function') {
+        return { imported: 0, skipped: 0, overwritten: 0 };
     }
-    let imported = 0, skipped = 0;
-    for (const rec of list) {
-        if (!rec || typeof rec.id !== 'string' || !Array.isArray(rec.shapes)) {
-            skipped++; continue;
-        }
-        const existing = StitchRegistry.get(rec.id);
-        if (existing && existing.source !== 'user') { skipped++; continue; }
-        try {
-            await saveUserStitchToDB(rec);
-            StitchRegistry.upsertUserStitch(rec);
-            imported++;
-        } catch (err) {
-            console.warn('Could not import user stitch:', rec.id, err);
-            skipped++;
-        }
-    }
-    if (imported > 0) {
-        document.dispatchEvent(new CustomEvent('stitch-registry-updated'));
-    }
-    return { imported, skipped };
+    return await mergeUserStitches(list, { silent: true });
 }
 
 function handleFileLoad(e) {
@@ -925,11 +981,16 @@ function handleFileLoad(e) {
             const result = await importUserStitchesFromPattern(data);
             restorePatternData(data);
             const base = `Loaded "${data.name || file.name}"`;
-            if (result.imported > 0) {
-                const noun = result.imported === 1 ? 'custom stitch' : 'custom stitches';
-                showToast(`${base} — added ${result.imported} ${noun}`);
-            } else {
-                showToast(base);
+            const bits = [];
+            if (result.imported) bits.push(`${result.imported} custom stitch${result.imported === 1 ? '' : 'es'} added`);
+            if (result.overwritten) bits.push(`${result.overwritten} overwritten`);
+            if (result.skipped)    bits.push(`${result.skipped} kept as-is`);
+            showToast(bits.length ? `${base} — ${bits.join(', ')}` : base);
+            const missing = getMissingGridStitches();
+            if (missing.length) {
+                const list = missing.map(id => `'${id}'`).join(', ');
+                const noun = missing.length === 1 ? 'an unknown stitch' : `${missing.length} unknown stitches`;
+                showToast(`Pattern uses ${noun}: ${list}. Cells using them will display blank until those stitches are added to your gallery.`);
             }
         } catch (err) {
             console.error(err);
@@ -945,9 +1006,12 @@ function clamp(val, min, max) {
     return Math.max(min, Math.min(max, val));
 }
 
-// Persistent toast — sits at the bottom-centre with a soft accent-tinted
-// background and stays visible until the user dismisses it via the × button.
-// Stack multiple toasts vertically; clicking × on any one pulls the rest down.
+// Toast — bottom-centre status message. The × dismisses immediately; otherwise
+// it fades out after TOAST_LIFETIME_MS so the stack doesn't accumulate. Editor-
+// linked toasts are also cleared when the editor overlay closes (see
+// closeStitchEditor); the timer is just a safety net for stray ones.
+const TOAST_LIFETIME_MS = 20_000;
+const TOAST_FADE_MS = 400;
 function showToast(msg) {
     let stack = document.getElementById('toast-stack');
     if (!stack) {
@@ -970,6 +1034,64 @@ function showToast(msg) {
     toast.appendChild(text);
     toast.appendChild(close);
     stack.appendChild(toast);
+    // Auto-fade so the stack doesn't grow unbounded if the user ignores them.
+    setTimeout(() => {
+        if (!toast.parentElement) return;
+        toast.classList.add('toast-fading');
+        setTimeout(() => toast.remove(), TOAST_FADE_MS);
+    }, TOAST_LIFETIME_MS);
+}
+
+// Styled replacement for window.confirm — same modal aesthetic as the rest of
+// the app, supports 2 or 3 buttons. Returns a Promise resolving to the chosen
+// button id (or null if dismissed via overlay click / Escape).
+//
+// buttons: array of { id, label, kind?: 'primary' | 'danger' }. The first
+// button is treated as the "default" (focused on open).
+function confirmDialog({ title = 'Are you sure?', message = '', buttons = [] }) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay confirm-overlay open';
+        overlay.style.display = 'flex';
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-narrow confirm-modal';
+        modal.innerHTML = '<div class="modal-header"><h2></h2></div>'
+            + '<div class="modal-body confirm-body"><p class="confirm-message"></p></div>'
+            + '<div class="modal-footer confirm-footer"></div>';
+        modal.querySelector('h2').textContent = title;
+        modal.querySelector('.confirm-message').textContent = message;
+        const footer = modal.querySelector('.confirm-footer');
+        let resolved = false;
+        const close = (id) => {
+            if (resolved) return;
+            resolved = true;
+            document.removeEventListener('keydown', onKey);
+            overlay.remove();
+            resolve(id);
+        };
+        let firstBtn = null;
+        for (const def of buttons) {
+            const b = document.createElement('button');
+            b.textContent = def.label;
+            if (def.kind === 'primary') b.className = 'btn-primary';
+            else if (def.kind === 'danger') b.className = 'btn-danger';
+            b.addEventListener('click', () => close(def.id));
+            footer.appendChild(b);
+            if (!firstBtn) firstBtn = b;
+        }
+        const onKey = (e) => {
+            if (e.key === 'Escape') close(null);
+            else if (e.key === 'Enter' && firstBtn) firstBtn.click();
+        };
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close(null);
+        });
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        document.addEventListener('keydown', onKey);
+        // Don't autofocus — Enter still triggers via onKey, and a focus ring on
+        // the first button is distracting in a "are you sure" dialog.
+    });
 }
 
 // === Pattern region ===

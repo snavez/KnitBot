@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Knitwit — Knitting Pattern Designer</title>
+    <title>Knitwittage — Knitting Pattern Designer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=58">
+    <link rel="stylesheet" href="css/style.css?v=66">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4fc3f7">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -20,7 +20,7 @@
                 <path d="M 9 10 L 16 20 L 23 10" fill="none" stroke="#2a211a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
                 <line x1="12" y1="23" x2="20" y2="23" stroke="#9b2f2a" stroke-width="1.6" stroke-linecap="round"></line>
             </svg>
-            <h1>Knitwit</h1>
+            <h1>Knitwittage</h1>
             <span class="masthead-subtitle">A knitter's workbook</span>
         </div>
         <div class="masthead-meta">
@@ -115,6 +115,9 @@
                 <div class="stitch-palette" id="stitch-palette"></div>
                 <div class="panel-row">
                     <button id="btn-add-stitch" class="panel-btn-wide" title="Design your own stitch icon and add it to the gallery">+ Add Stitch Type</button>
+                </div>
+                <div class="panel-row">
+                    <button id="btn-view-gallery" class="panel-btn-wide" title="Toggle which stitches appear in this project's palette, and save or load your full gallery as a file">View Full Gallery</button>
                 </div>
             </div>
 
@@ -515,6 +518,28 @@
         <button data-action="delete" class="danger">Delete</button>
     </div>
 
+    <!-- Full Stitch Gallery overlay -->
+    <div class="modal-overlay" id="gallery-modal">
+        <div class="modal modal-narrow gallery-modal">
+            <div class="modal-header">
+                <h2>Stitches</h2>
+                <button class="modal-close" id="gallery-close" title="Close">&times;</button>
+            </div>
+            <div class="modal-body gallery-body">
+                <p class="gallery-hint">Click a stitch to add it to this project's palette (or remove it). Built-in stitches can be hidden but not edited or deleted; user stitches can be edited or deleted by right-clicking their tile in the palette.</p>
+                <div class="gallery-list" id="gallery-list">
+                    <!-- items injected by gallery.js -->
+                </div>
+            </div>
+            <div class="modal-footer gallery-footer">
+                <input type="file" id="gallery-load-input" accept="application/json,.json" style="display:none">
+                <button id="gallery-load" title="Load a gallery file (.json) to merge those stitches into your library">Load gallery</button>
+                <button id="gallery-save" title="Save your full custom-stitch library to a .json file you can move between devices">Save gallery</button>
+                <button id="gallery-done" class="btn-primary">Done</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Print View (hidden, shown only when printing) -->
     <div class="print-view" id="print-view">
         <h1 class="print-title">Knitting Pattern</h1>
@@ -526,18 +551,19 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/grid-view.js?v=58"></script>
-    <script src="js/app.js?v=58"></script>
-    <script src="js/preview.js?v=58"></script>
-    <script src="js/print.js?v=58"></script>
-    <script src="js/instructions.js?v=58"></script>
-    <script src="js/random.js?v=58"></script>
-    <script src="js/image.js?v=58"></script>
-    <script src="js/stitches.js?v=58"></script>
-    <script src="js/stitch-editor.js?v=58"></script>
-    <script src="js/cables.js?v=58"></script>
-    <script src="js/knit-mode.js?v=58"></script>
-    <script src="js/tabs.js?v=58"></script>
+    <script src="js/grid-view.js?v=66"></script>
+    <script src="js/app.js?v=66"></script>
+    <script src="js/preview.js?v=66"></script>
+    <script src="js/print.js?v=66"></script>
+    <script src="js/instructions.js?v=66"></script>
+    <script src="js/random.js?v=66"></script>
+    <script src="js/image.js?v=66"></script>
+    <script src="js/stitches.js?v=66"></script>
+    <script src="js/stitch-editor.js?v=66"></script>
+    <script src="js/gallery.js?v=66"></script>
+    <script src="js/cables.js?v=66"></script>
+    <script src="js/knit-mode.js?v=66"></script>
+    <script src="js/tabs.js?v=66"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {
@@ -547,7 +573,7 @@
                 const newWorker = reg.installing;
                 newWorker.addEventListener('statechange', () => {
                     if (newWorker.state === 'activated') {
-                        console.log('Knitwit updated to latest version');
+                        console.log('Knitwittage updated to latest version');
                     }
                 });
             });

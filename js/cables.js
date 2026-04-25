@@ -28,7 +28,14 @@ function initStitchPalette() {
     const activeId = state?.activeStitch || null;
     palette.innerHTML = '';
 
+    // Restrict to the project's active set (∪ grid-used ∪ erase). Falls back
+    // to "everything" pre-init / pre-pattern-load so the palette never goes
+    // mysteriously empty during startup.
+    const effective = (typeof getEffectiveActiveStitches === 'function')
+        ? getEffectiveActiveStitches()
+        : null;
     for (const stitch of StitchRegistry.getAll()) {
+        if (effective && !effective.has(stitch.id)) continue;
         palette.appendChild(buildStitchTile(stitch, activeId === stitch.id));
     }
 

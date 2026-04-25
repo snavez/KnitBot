@@ -1,6 +1,6 @@
 {
-  "name": "Knitwit - Knitting Pattern Designer",
-  "short_name": "Knitwit",
+  "name": "Knitwittage - Knitting Pattern Designer",
+  "short_name": "Knitwittage",
   "description": "Design knitting patterns with colourwork, cables, lace, and texture. Generate instructions and print patterns.",
   "start_url": "./index.html",
   "display": "standalone",
