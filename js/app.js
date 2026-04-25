@@ -652,11 +652,48 @@ function restorePatternData(data) {
     markSaved();
 }
 
+// Collect every user-defined stitch the current pattern is actually using,
+// as plain JSON records (no function refs). Saved alongside the grid so the
+// pattern renders correctly when opened on a fresh device.
+function collectUsedUserStitches() {
+    if (typeof StitchRegistry === 'undefined') return [];
+    const used = new Set();
+    for (const row of state.stitchGrid) {
+        if (!row) continue;
+        for (const s of row) {
+            if (typeof s === 'string') used.add(s);
+        }
+    }
+    const records = [];
+    for (const id of used) {
+        const def = StitchRegistry.get(id);
+        if (!def || def.source !== 'user') continue;
+        // The hydrated entry holds function refs; fall back to the raw stored
+        // record if we have one, otherwise rebuild a clean serialisable copy.
+        if (def._record) {
+            records.push(def._record);
+        } else {
+            records.push({
+                id: def.id,
+                label: def.label,
+                sublabel: def.sublabel || null,
+                title: def.title || '',
+                code: def.code || def.id,
+                detailedInstructions: def.detailedInstructions || '',
+                shapes: def.shapes || [],
+                source: 'user',
+                order: def.order ?? 500,
+            });
+        }
+    }
+    return records;
+}
+
 function saveToFile() {
     const name = document.getElementById('pattern-name').value.trim() || 'untitled';
     state.patternName = name;
     const data = {
-        version: 2,
+        version: 3,
         name: name,
         rows: state.rows,
         cols: state.cols,
@@ -665,6 +702,8 @@ function saveToFile() {
         knittingMode: state.knittingMode,
         firstRow: state.firstRow,
         customInstructions: state.customInstructions,
+        // Custom stitches the pattern depends on. Empty array if none used.
+        userStitches: collectUsedUserStitches(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -836,20 +875,61 @@ function loadFromFile() {
     document.getElementById('file-input').click();
 }
 
+// Import any custom-stitch definitions the pattern file carries with it.
+// Each one is added to the registry and persisted to IndexedDB so it stays
+// usable in future sessions on this device. Built-in ids are skipped — a
+// pattern file shouldn't be able to overwrite the app's own stitch library.
+async function importUserStitchesFromPattern(data) {
+    const list = Array.isArray(data && data.userStitches) ? data.userStitches : [];
+    if (list.length === 0 || typeof StitchRegistry === 'undefined') {
+        return { imported: 0, skipped: 0 };
+    }
+    let imported = 0, skipped = 0;
+    for (const rec of list) {
+        if (!rec || typeof rec.id !== 'string' || !Array.isArray(rec.shapes)) {
+            skipped++; continue;
+        }
+        const existing = StitchRegistry.get(rec.id);
+        if (existing && existing.source !== 'user') { skipped++; continue; }
+        try {
+            await saveUserStitchToDB(rec);
+            StitchRegistry.upsertUserStitch(rec);
+            imported++;
+        } catch (err) {
+            console.warn('Could not import user stitch:', rec.id, err);
+            skipped++;
+        }
+    }
+    if (imported > 0) {
+        document.dispatchEvent(new CustomEvent('stitch-registry-updated'));
+    }
+    return { imported, skipped };
+}
+
 function handleFileLoad(e) {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
             if (!data.rows || !data.cols || !data.grid) {
                 showToast('Invalid pattern file');
                 return;
             }
+            // Hydrate any user stitches BEFORE restoring the grid so the
+            // overlay renderer has every stitch definition it needs.
+            const result = await importUserStitchesFromPattern(data);
             restorePatternData(data);
-            showToast(`Loaded "${data.name || file.name}"`);
+            const base = `Loaded "${data.name || file.name}"`;
+            if (result.imported > 0) {
+                const noun = result.imported === 1 ? 'custom stitch' : 'custom stitches';
+                showToast(`${base} — added ${result.imported} ${noun}`);
+            } else {
+                showToast(base);
+            }
         } catch (err) {
+            console.error(err);
             showToast('Could not read file');
         }
     };
