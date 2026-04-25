@@ -820,12 +820,17 @@ function commitLiveText() {
 // ---------- Code + auto-fill ----------
 
 function onCodeInput(e) {
+    if (editorState.detailedTouched) return;
     const code = e.target.value.trim();
-    if (!code || editorState.detailedTouched) return;
+    const detailedEl = document.getElementById('st-detailed');
+    if (!detailedEl) return;
+    if (!code) { detailedEl.value = ''; return; }
+    // Case-insensitive match against the library. When the typed code stops
+    // matching anything, clear the description — otherwise typing "K" then
+    // growing it to "K3into1" would leave the K explanation lingering under
+    // a code it no longer applies to.
     const match = Object.keys(STITCH_CODE_LIBRARY).find(k => k.toLowerCase() === code.toLowerCase());
-    if (match) {
-        document.getElementById('st-detailed').value = STITCH_CODE_LIBRARY[match];
-    }
+    detailedEl.value = match ? STITCH_CODE_LIBRARY[match] : '';
 }
 
 // ---------- Save ----------

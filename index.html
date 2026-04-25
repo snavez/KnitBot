@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=57">
+    <link rel="stylesheet" href="css/style.css?v=58">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4fc3f7">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -486,11 +486,11 @@
                         <label for="st-detailed">Detailed instructions <span class="form-label-opt">(optional)</span></label>
                         <textarea id="st-detailed" rows="8" placeholder="How the knitter should actually make this stitch. Shown once at the top of the instructions."></textarea>
                     </div>
-                    <div class="form-grid-row">
+                    <div class="form-grid-row form-grid-row-align-top">
                         <span class="form-grid-label">Behaviour</span>
                         <label class="st-multicell-toggle" title="When ticked, placing this stitch on the chart requires a click-and-drag across two or more cells (like the built-in cable stitches). The icon shows once at the centre of the run; flanking cells echo it faintly.">
                             <input type="checkbox" id="st-multi-cell">
-                            <span>Multi-cell stitch (e.g. K3tog, M3 — covers 2+ adjacent cells)</span>
+                            <span class="st-multicell-text">Multi-cell stitch (e.g. K3tog, M3 — covers 2+ adjacent cells)</span>
                         </label>
                     </div>
                     <div class="form-grid-row form-grid-row-align-top">
@@ -526,18 +526,18 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/grid-view.js?v=57"></script>
-    <script src="js/app.js?v=57"></script>
-    <script src="js/preview.js?v=57"></script>
-    <script src="js/print.js?v=57"></script>
-    <script src="js/instructions.js?v=57"></script>
-    <script src="js/random.js?v=57"></script>
-    <script src="js/image.js?v=57"></script>
-    <script src="js/stitches.js?v=57"></script>
-    <script src="js/stitch-editor.js?v=57"></script>
-    <script src="js/cables.js?v=57"></script>
-    <script src="js/knit-mode.js?v=57"></script>
-    <script src="js/tabs.js?v=57"></script>
+    <script src="js/grid-view.js?v=58"></script>
+    <script src="js/app.js?v=58"></script>
+    <script src="js/preview.js?v=58"></script>
+    <script src="js/print.js?v=58"></script>
+    <script src="js/instructions.js?v=58"></script>
+    <script src="js/random.js?v=58"></script>
+    <script src="js/image.js?v=58"></script>
+    <script src="js/stitches.js?v=58"></script>
+    <script src="js/stitch-editor.js?v=58"></script>
+    <script src="js/cables.js?v=58"></script>
+    <script src="js/knit-mode.js?v=58"></script>
+    <script src="js/tabs.js?v=58"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {

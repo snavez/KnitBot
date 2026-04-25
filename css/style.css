@@ -1897,19 +1897,30 @@ body.knit-active .workbench {
     border: 1px solid var(--border);
     border-radius: 4px;
 }
-.st-multicell-toggle {
+/* Override the right-side form's right-aligned uppercase label rules so the
+   multi-cell toggle reads as body copy, in the same serif/size as the
+   workbench buttons, left-aligned within the input column. Selector is
+   double-classed so it beats the .stitch-editor-right label rule. */
+.stitch-editor-right .st-multicell-toggle {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 8px;
-    font-family: var(--sans);
-    font-size: 0.85rem;
-    color: var(--text);
+    font-family: var(--serif);
+    font-size: 0.82rem;
+    font-weight: 400;
+    line-height: 1.35;
     text-transform: none;
     letter-spacing: 0;
+    text-align: left;
+    color: var(--text);
     cursor: pointer;
-    line-height: 1.4;
+    justify-self: stretch;
 }
-.st-multicell-toggle input { margin-top: 2px; }
+.st-multicell-text {
+    flex: 1;
+    text-align: left;
+}
+.st-multicell-toggle input { margin: 0; flex: 0 0 auto; }
 #st-preview-canvas {
     width: 40px;
     height: 40px;
