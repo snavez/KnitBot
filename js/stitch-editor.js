@@ -542,16 +542,19 @@ function redrawCanvas() {
     if (editorState.pending) allShapes.push(editorState.pending);
     if (editorState.drawing) allShapes.push(editorState.drawing);
 
+    // Walk shapes in z-order. Erase strokes punch holes via destination-out
+    // so they only affect what's BENEATH them on the canvas — anything drawn
+    // afterwards layers cleanly on top, no longer "ink-phobic".
     const isEraseShape = (s) => s && s.stroke === STITCH_COLORS.bg;
-    const paint = allShapes.filter(s => !isEraseShape(s));
-    const erase = allShapes.filter(isEraseShape);
-
-    drawUserStitchShapes(ctx, paint, 0, 0, W, H);
-    if (erase.length) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'destination-out';
-        drawUserStitchShapes(ctx, erase, 0, 0, W, H);
-        ctx.restore();
+    for (const s of allShapes) {
+        if (isEraseShape(s)) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            drawUserStitchShapes(ctx, [s], 0, 0, W, H);
+            ctx.restore();
+        } else {
+            drawUserStitchShapes(ctx, [s], 0, 0, W, H);
+        }
     }
 
     // During a Curve drag: preview the apex (where the curve peak will land)
