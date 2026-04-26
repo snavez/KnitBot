@@ -391,7 +391,7 @@ const BUILTIN_STITCHES = [
     },
     {
         id: 'no-stitch', label: 'No St', sublabel: null,
-        title: "No stitch — click to fill all empty cells, or tick 'Select' to place individually",
+        title: "No stitch — click cells to mark them as not knitted (rendered as background). Tick 'All BG' below the tile to fill every empty cell at once.",
         kind: 'simple', code: null, printSymbol: null,
         drawIcon: (ctx, s) => drawNoStitchTileIcon(ctx, s),
         drawCell: drawNoStitchCell,
