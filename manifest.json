@@ -9,6 +9,18 @@
   "orientation": "any",
   "icons": [
     {
+      "src": "knitwittage_icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "knitwittage_icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "knitwittage_icon.png",
       "sizes": "1033x1056",
       "type": "image/png",
