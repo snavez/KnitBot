@@ -5,8 +5,13 @@ const state = {
     grid: [],           // 2D array: null = empty, string = color
     stitchGrid: [],     // 2D array: null = knit, 'purl', or {type,dir,width,pos,id}
     activeColor: null,
-    activeTool: 'paint', // 'paint', 'erase', 'fill', 'select', 'stitch'
-    activeStitch: null,  // null, 'knit', 'purl', 'left-cross', 'right-cross', 'stitch-erase'
+    activeTool: 'paint', // 'paint', 'fill', 'select', 'stitch'
+    activeStitch: null,  // null, 'knit', 'purl', 'left-cross', 'right-cross', etc.
+    // Erase toggles — independent of activeTool. When either is on, clicking
+    // a cell erases that aspect (stitch and/or colour). Both can be on at
+    // once. Selecting Paint / Fill / Select clears both back to false.
+    eraseStitch: false,
+    eraseColour: false,
     isPainting: false,
     // Drag-vs-click detection: the initial cell on mousedown, and whether
     // we've moved to another cell (= dragging). Drag-mode paints additively
@@ -154,7 +159,13 @@ function initPalette() {
 
 function selectColor(color) {
     state.activeColor = color;
-    state.activeTool = 'paint';
+    // Picking a colour shouldn't kick the user out of Fill / Select / Stitch
+    // mode — those modes still consume a colour. Only switch to Paint if we
+    // were in a no-colour mode (currently nothing — Erase toggles are
+    // independent and don't change activeTool).
+    if (state.activeTool !== 'fill' && state.activeTool !== 'select' && state.activeTool !== 'stitch') {
+        state.activeTool = 'paint';
+    }
     updateToolButtons();
     document.querySelectorAll('.color-swatch').forEach(s => {
         s.classList.toggle('active', s.dataset.color === color);
@@ -303,8 +314,11 @@ function renderNumbers() {
 function paintCell(row, col) {
     if (row < 0 || row >= state.rows || col < 0 || col >= state.cols) return;
 
-    if (state.activeTool === 'erase') {
-        state.grid[row][col] = null;
+    // Erase toggles take priority over the active tool — both can be on at
+    // once, in which case the click clears stitch AND colour.
+    if (state.eraseStitch || state.eraseColour) {
+        if (state.eraseStitch) clearStitchInCell(row, col);
+        if (state.eraseColour) state.grid[row][col] = null;
     } else if (state.activeTool === 'fill') {
         floodFill(row, col, state.grid[row][col], state.activeColor);
     } else {
@@ -317,6 +331,26 @@ function paintCell(row, col) {
     }
 
     updateCellDOM(row, col);
+    if (state.eraseStitch && typeof renderStitchOverlay === 'function') renderStitchOverlay();
+}
+
+// Clear the stitch from a single cell — extracted so the Erase Stitch toggle
+// (Tool section) and the legacy stitch-erase tile both go through one place.
+// Erasing a cell that's part of a multi-cell crossing clears the whole group.
+function clearStitchInCell(row, col) {
+    if (!state.stitchGrid[row]) return;
+    const existing = state.stitchGrid[row][col];
+    if (existing && typeof existing === 'object' && existing.id) {
+        const id = existing.id;
+        for (let cc = 0; cc < state.cols; cc++) {
+            const s = state.stitchGrid[row][cc];
+            if (s && typeof s === 'object' && s.id === id) {
+                state.stitchGrid[row][cc] = null;
+            }
+        }
+    } else {
+        state.stitchGrid[row][col] = null;
+    }
 }
 
 // Additive paint: used during a drag stroke. Only sets the cell to the active
@@ -324,7 +358,9 @@ function paintCell(row, col) {
 // flicker them. Erase/fill fall through to the toggling paintCell behaviour.
 function paintCellAdditive(row, col) {
     if (row < 0 || row >= state.rows || col < 0 || col >= state.cols) return;
-    if (state.activeTool === 'erase' || state.activeTool === 'fill') {
+    // Erase toggles + Fill: drag through paintCell so each cell on the stroke
+    // gets its full erase / flood-fill behaviour.
+    if (state.eraseStitch || state.eraseColour || state.activeTool === 'fill') {
         paintCell(row, col);
         return;
     }
@@ -373,6 +409,17 @@ function bindEvents() {
         e.preventDefault();
         const r = hit.r, c = hit.c;
 
+        // Erase toggles always win — when either is on, click erases that
+        // aspect (stitch and/or colour) regardless of the current tool mode.
+        // Selection / stitch / fill modes are suspended for the duration.
+        if (state.eraseStitch || state.eraseColour) {
+            state.isPainting = true;
+            state.paintStartCell = { r, c };
+            state.paintDragged = false;
+            paintCell(r, c);
+            return;
+        }
+
         if (state.activeTool === 'select') {
             if (state.isPasting) {
                 commitPaste(r, c);
@@ -403,6 +450,15 @@ function bindEvents() {
         if (!hit) return;
         const r = hit.r, c = hit.c;
 
+        // Drag-erase: continue erasing across cells while either toggle is on.
+        if ((state.eraseStitch || state.eraseColour) && state.isPainting) {
+            const start = state.paintStartCell;
+            if (start && r === start.r && c === start.c) return;
+            state.paintDragged = true;
+            paintCellAdditive(r, c);
+            return;
+        }
+
         if (state.activeTool === 'select') {
             if (state.isSelecting) {
                 state.selection.endRow = r;
@@ -430,7 +486,7 @@ function bindEvents() {
         // the start cell if the initial toggle cleared it.
         if (!state.paintDragged && start) {
             state.paintDragged = true;
-            if (state.activeTool !== 'erase' && state.activeTool !== 'fill') {
+            if (!state.eraseStitch && !state.eraseColour && state.activeTool !== 'fill') {
                 if (state.grid[start.r][start.c] !== state.activeColor) {
                     state.grid[start.r][start.c] = state.activeColor;
                     updateCellDOM(start.r, start.c);
@@ -492,7 +548,7 @@ function bindEvents() {
 
         if (!state.paintDragged && start) {
             state.paintDragged = true;
-            if (state.activeTool !== 'erase' && state.activeTool !== 'fill') {
+            if (!state.eraseStitch && !state.eraseColour && state.activeTool !== 'fill') {
                 if (state.grid[start.r][start.c] !== state.activeColor) {
                     state.grid[start.r][start.c] = state.activeColor;
                     updateCellDOM(start.r, start.c);
@@ -566,9 +622,10 @@ function bindEvents() {
 
     // Tool buttons
     document.getElementById('tool-paint').addEventListener('click', () => setTool('paint'));
-    document.getElementById('tool-erase').addEventListener('click', () => setTool('erase'));
     document.getElementById('tool-fill').addEventListener('click', () => setTool('fill'));
     document.getElementById('tool-select').addEventListener('click', () => setTool('select'));
+    document.getElementById('tool-erase-stitch')?.addEventListener('click', toggleEraseStitch);
+    document.getElementById('tool-erase-colour')?.addEventListener('click', toggleEraseColour);
 
     // Selection action buttons
     document.getElementById('btn-copy').addEventListener('click', copySelection);
@@ -612,13 +669,37 @@ function setTool(tool) {
         clearSelection();
     }
     state.activeTool = tool;
+    // Picking a primary tool clears both erase toggles — they're modal
+    // additions, not paint modes themselves.
+    state.eraseStitch = false;
+    state.eraseColour = false;
+    updateToolButtons();
+}
+
+// Toggle one of the erase modifiers. They're independent of activeTool and
+// of each other; both can be on at once.
+function toggleEraseStitch() {
+    state.eraseStitch = !state.eraseStitch;
+    updateToolButtons();
+}
+function toggleEraseColour() {
+    state.eraseColour = !state.eraseColour;
     updateToolButtons();
 }
 
 function updateToolButtons() {
+    // While either erase toggle is on, Paint / Fill / Select read as
+    // "suspended" — clicking still does erase work, so the highlight
+    // shouldn't lie about what's actually happening. The underlying
+    // state.activeTool is kept intact so toggling erase off restores
+    // the previous mode visually.
+    const erasing = state.eraseStitch || state.eraseColour;
     document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.id === `tool-${state.activeTool}`);
+        if (btn.id === 'tool-erase-stitch' || btn.id === 'tool-erase-colour') return;
+        btn.classList.toggle('active', !erasing && btn.id === `tool-${state.activeTool}`);
     });
+    document.getElementById('tool-erase-stitch')?.classList.toggle('active', state.eraseStitch);
+    document.getElementById('tool-erase-colour')?.classList.toggle('active', state.eraseColour);
 }
 
 // === History (Undo/Redo) ===
@@ -973,7 +1054,7 @@ function handleFileLoad(e) {
         try {
             const data = JSON.parse(ev.target.result);
             if (!data.rows || !data.cols || !data.grid) {
-                showToast('Invalid pattern file');
+                showToast('Invalid pattern file', { tone: 'error' });
                 return;
             }
             // Hydrate any user stitches BEFORE restoring the grid so the
@@ -990,11 +1071,11 @@ function handleFileLoad(e) {
             if (missing.length) {
                 const list = missing.map(id => `'${id}'`).join(', ');
                 const noun = missing.length === 1 ? 'an unknown stitch' : `${missing.length} unknown stitches`;
-                showToast(`Pattern uses ${noun}: ${list}. Cells using them will display blank until those stitches are added to your gallery.`);
+                showToast(`Pattern uses ${noun}: ${list}. Cells using them will display blank until those stitches are added to your gallery.`, { tone: 'error' });
             }
         } catch (err) {
             console.error(err);
-            showToast('Could not read file');
+            showToast('Could not read file', { tone: 'error' });
         }
     };
     reader.readAsText(file);
@@ -1010,9 +1091,15 @@ function clamp(val, min, max) {
 // it fades out after TOAST_LIFETIME_MS so the stack doesn't accumulate. Editor-
 // linked toasts are also cleared when the editor overlay closes (see
 // closeStitchEditor); the timer is just a safety net for stray ones.
-const TOAST_LIFETIME_MS = 20_000;
+//
+// `tone` controls the colour treatment:
+//   'info'  (default) — soft sage green, matches the workbench's "Right side"
+//                       indicator; for confirmations and neutral status.
+//   'error'           — soft red, matches the masthead accent; for failures,
+//                       validation issues, missing-stitch warnings.
+const TOAST_LIFETIME_MS = 10_000;
 const TOAST_FADE_MS = 400;
-function showToast(msg) {
+function showToast(msg, opts = {}) {
     let stack = document.getElementById('toast-stack');
     if (!stack) {
         stack = document.createElement('div');
@@ -1021,7 +1108,8 @@ function showToast(msg) {
         document.body.appendChild(stack);
     }
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    const tone = opts.tone === 'error' ? 'error' : 'info';
+    toast.className = 'toast toast-' + tone;
     const text = document.createElement('span');
     text.className = 'toast-text';
     text.textContent = msg;
@@ -1326,7 +1414,8 @@ function commitPaste(row, col) {
     cancelPaste();
     renderGrid();
     pushHistory();
-    showToast('Pasted');
+    // No toast — the pasted region appears immediately; the visual change is
+    // its own confirmation.
 }
 
 function deleteSelection() {

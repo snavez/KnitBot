@@ -390,7 +390,7 @@ const BUILTIN_STITCHES = [
         order: 90,
     },
     {
-        id: 'no-stitch', label: 'No St', sublabel: '(All BG)',
+        id: 'no-stitch', label: 'No St', sublabel: null,
         title: "No stitch — click to fill all empty cells, or tick 'Select' to place individually",
         kind: 'simple', code: null, printSymbol: null,
         drawIcon: (ctx, s) => drawNoStitchTileIcon(ctx, s),
@@ -399,7 +399,10 @@ const BUILTIN_STITCHES = [
         extraTileMarkup: true, // signals the palette renderer to add the "Select Cells" checkbox
     },
     {
-        id: 'stitch-erase', label: 'Erase', sublabel: 'Stitch type',
+        // No sublabel — Erase reads as a tool, not a stitch type. The × icon
+        // and the label "Erase" together are clear, and skipping the sublabel
+        // gives the tile a visually lighter footprint than the stitch tiles.
+        id: 'stitch-erase', label: 'Erase', sublabel: null,
         title: 'Erase stitch type',
         kind: 'erase',
         // Uses a CSS-styled glyph (.stitch-erase-icon) instead of a canvas icon;

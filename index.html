@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=66">
+    <link rel="stylesheet" href="css/style.css?v=86">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4fc3f7">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -137,13 +137,17 @@
                 <div class="panel-section-head">
                     <span class="panel-section-title">Tool</span>
                 </div>
-                <div class="panel-row panel-row-two">
+                <!-- Primary actions: mutually exclusive (one is always active). -->
+                <div class="panel-row panel-row-three">
                     <button id="tool-paint" class="tool-btn active" title="Paint (left-click)">Paint</button>
-                    <button id="tool-erase" class="tool-btn" title="Erase">Erase</button>
-                </div>
-                <div class="panel-row panel-row-two">
                     <button id="tool-fill" class="tool-btn" title="Fill region">Fill</button>
                     <button id="tool-select" class="tool-btn" title="Select region">Select</button>
+                </div>
+                <!-- Erase modifiers: independent toggles. Either or both can be on; -->
+                <!-- selecting Paint / Fill / Select clears them back to off.       -->
+                <div class="panel-row panel-row-two">
+                    <button id="tool-erase-stitch" class="tool-btn" title="Toggle: when on, clicking a cell erases its stitch. Combine with Erase Colour to clear both at once.">Erase Stitch</button>
+                    <button id="tool-erase-colour" class="tool-btn" title="Toggle: when on, clicking a cell erases its colour. Combine with Erase Stitch to clear both at once.">Erase Colour</button>
                 </div>
                 <div class="selection-actions" id="selection-actions" style="display:none;">
                     <div class="selection-actions-label">Selection active</div>
@@ -452,7 +456,7 @@
                             </div>
                             <div class="stitch-editor-stroke">
                                 <label for="st-stroke-width">Stroke</label>
-                                <input type="range" id="st-stroke-width" min="2" max="20" value="6" step="1">
+                                <input type="range" id="st-stroke-width" min="2" max="40" value="6" step="1">
                             </div>
                             <div class="stitch-editor-fill-group" title="Fill colour for rectangles and ellipses (independent of stroke)">
                                 <span class="stitch-editor-fill-label">Fill</span>
@@ -551,19 +555,19 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/grid-view.js?v=66"></script>
-    <script src="js/app.js?v=66"></script>
-    <script src="js/preview.js?v=66"></script>
-    <script src="js/print.js?v=66"></script>
-    <script src="js/instructions.js?v=66"></script>
-    <script src="js/random.js?v=66"></script>
-    <script src="js/image.js?v=66"></script>
-    <script src="js/stitches.js?v=66"></script>
-    <script src="js/stitch-editor.js?v=66"></script>
-    <script src="js/gallery.js?v=66"></script>
-    <script src="js/cables.js?v=66"></script>
-    <script src="js/knit-mode.js?v=66"></script>
-    <script src="js/tabs.js?v=66"></script>
+    <script src="js/grid-view.js?v=86"></script>
+    <script src="js/app.js?v=86"></script>
+    <script src="js/preview.js?v=86"></script>
+    <script src="js/print.js?v=86"></script>
+    <script src="js/instructions.js?v=86"></script>
+    <script src="js/random.js?v=86"></script>
+    <script src="js/image.js?v=86"></script>
+    <script src="js/stitches.js?v=86"></script>
+    <script src="js/stitch-editor.js?v=86"></script>
+    <script src="js/gallery.js?v=86"></script>
+    <script src="js/cables.js?v=86"></script>
+    <script src="js/knit-mode.js?v=86"></script>
+    <script src="js/tabs.js?v=86"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {

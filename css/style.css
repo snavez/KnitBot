@@ -408,7 +408,7 @@ select {
 .workbench {
     flex: 1;
     display: grid;
-    grid-template-columns: 260px 1fr 300px;
+    grid-template-columns: 290px 1fr 300px;
     min-height: 0;
     overflow: hidden;
 }
@@ -469,6 +469,12 @@ select {
     gap: 6px;
 }
 
+.panel-row-three {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+}
+
 .panel-row button, .panel-btn-wide {
     width: 100%;
     padding: 8px 10px;
@@ -476,6 +482,8 @@ select {
     font-family: var(--serif);
     text-align: center;
 }
+
+/* (Erase Stitch is now a tool-btn in the Tool section — uses .tool-btn.active.) */
 
 .panel-select {
     width: 100%;
@@ -640,7 +648,8 @@ body.knit-active .workbench {
     height: var(--cell-size);
     display: flex;
     align-items: center;
-    font-size: 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
     color: var(--text-muted);
     min-width: 46px;
     white-space: nowrap;
@@ -849,8 +858,16 @@ body.knit-active .workbench {
     border-bottom: 1px solid var(--border);
 }
 
+/* Single heading recipe used by every overlay (stitch editor, gallery,
+   confirm dialogs, preview/instructions/image/random modals). Mirrors the
+   stitch editor's original look so all overlays read as siblings. */
 .modal-header h2 {
-    font-size: 1.1rem;
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    color: var(--text);
+    margin: 0;
 }
 
 .modal-close {
@@ -893,7 +910,10 @@ body.knit-active .workbench {
 /* === Stitch Palette (now inside left panel) === */
 .stitch-palette {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* minmax(0, 1fr) ignores the columns' intrinsic min-content widths so a
+       wider label on one side (e.g. "Erase / Stitch type") can't pull its
+       column wider than the other. */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
 }
 
@@ -945,6 +965,12 @@ body.knit-active .workbench {
 }
 .stitch-label-main {
     text-align: left;
+    /* Truncate codes wider than the tile (e.g. a custom "ALongStitchCode")
+       instead of letting them bleed into adjacent tiles or the chart. */
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .stitch-tile .stitch-label-sub {
     font-family: var(--serif);
@@ -954,17 +980,22 @@ body.knit-active .workbench {
        in the editor's auto-fill prompts and the printed pattern legend. */
     font-style: italic;
     color: var(--text-muted);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: left;
     white-space: nowrap;
     font-style: italic;
 }
 
 /* === No-Stitch tile: two rows — [icon | labels] on top, [checkbox] below === */
+/* Slightly tighter horizontal padding than the other tiles so the mono-font
+   "Select Cells" label fits on a single line. */
 .stitch-tile[data-stitch="no-stitch"] {
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
-    padding: 6px 8px;
+    padding: 6px 4px;
 }
 .stitch-tile[data-stitch="no-stitch"] .no-st-top {
     display: flex;
@@ -972,9 +1003,12 @@ body.knit-active .workbench {
     gap: 8px;
 }
 .stitch-tile[data-stitch="no-stitch"] > .no-st-checkbox {
+    /* Left-align the checkbox with the No St icon (which sits at the tile's
+       content-box left edge) and give a comfortable gap to "All BG". */
     margin: 0;
+    padding: 0;
     justify-content: flex-start;
-    width: 100%;
+    gap: 8px;
 }
 
 .stitch-tile:hover {
@@ -1004,7 +1038,8 @@ body.knit-active .workbench {
 }
 
 .no-st-checkbox {
-    font-size: 0.8rem !important;
+    font-family: var(--mono);
+    font-size: 0.7rem !important;
     color: var(--text-muted) !important;
     display: flex;
     align-items: center;
@@ -1553,19 +1588,17 @@ body.knit-active .workbench {
     max-width: 1040px;
     width: 95vw;
 }
-.stitch-editor-modal .modal-header h2 {
-    font-family: var(--serif);
-    font-size: 1.2rem;
-    font-weight: 500;
-    letter-spacing: -0.2px;
-    color: var(--text);
-}
+/* Stitch editor heading style now lives on the shared .modal-header h2 rule. */
 .stitch-editor-body {
     display: grid;
     grid-template-columns: minmax(360px, 1fr) 380px;
     gap: 14px;
     padding: 18px;
-    overflow: hidden;
+    /* `clip` (vs `hidden`) prevents the browser from scrolling this element
+       at all — including the auto-scroll-into-view that fires when typing
+       into the live text overlay at large font sizes, which used to drag
+       the toolstrip off the top of the modal. */
+    overflow: clip;
 }
 .stitch-editor-left {
     min-width: 0;
@@ -1771,8 +1804,18 @@ body.knit-active .workbench {
     box-shadow: 0 0 0 1px rgba(155, 47, 42, 0.15);
     z-index: 2;
     user-select: none;
+    /* `clip` (not `hidden`) so the browser can't scroll this element to
+       keep the caret in view when typing into a contenteditable that's
+       taller than the overlay — which would scroll the drag handle off
+       the top and persist across reopens. */
+    overflow: clip;
 }
 .st-text-overlay-handle {
+    /* Pin the drag bar at its natural height — without this the flex layout
+       lets it shrink to zero when the contenteditable is taller than the
+       overlay's max-height (i.e. whenever the slider's font size + a few
+       characters exceed the drawing-board height). */
+    flex: 0 0 auto;
     padding: 3px 8px;
     font-family: var(--sans);
     font-size: 0.7rem;
@@ -1790,7 +1833,9 @@ body.knit-active .workbench {
 .st-text-overlay-content {
     /* Sized by its own content (text size) so the overlay grows naturally
        up to the parent's max-height. Centered display means a single glyph
-       sits in the middle of the box. */
+       sits in the middle of the box. position:relative anchors the empty-
+       state placeholder (::before below) so it can sit out of layout flow. */
+    position: relative;
     flex: 0 0 auto;
     padding: 8px 10px;
     text-align: center;
@@ -1811,6 +1856,18 @@ body.knit-active .workbench {
     content: 'Type here…';
     color: var(--text-muted);
     opacity: 0.6;
+    /* Float the placeholder out of layout flow at a sane fixed size so it
+       can't balloon the content box when the slider sets a huge font-size
+       (was forcing the textbox to overflow the wrapper and triggering a
+       focus-scroll that pushed the editor toolstrip off the modal). */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 1;
 }
 .stitch-editor-canvas-wrapper {
     position: relative;
@@ -1964,18 +2021,7 @@ body.knit-active .workbench {
 
 /* === Stitch Gallery overlay === */
 .modal.gallery-modal { width: 720px; max-width: 92vw; }
-/* Match the workbench panel-section-title style ("PALETTE", "TOOL"…) so the
-   overlay reads as a deeper view of the same UI rather than a separate app. */
-.modal.gallery-modal .modal-header h2,
-.modal.confirm-modal .modal-header h2 {
-    font-family: var(--sans);
-    font-size: 0.68rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--text-muted);
-    margin: 0;
-}
+/* Heading style now shared with all other overlays via .modal-header h2. */
 .gallery-body { padding: 18px 20px; }
 /* Body copy mirrors the .dimension-label / .panel-section-hint style — same
    mono family the workbench uses for "Height" / "Width" / row hints. */
@@ -2109,15 +2155,26 @@ body.knit-active .workbench {
     align-items: center;
     gap: 12px;
     padding: 8px 6px 8px 16px;
-    /* Soft tint of the accent so black body copy stays comfortably readable. */
-    background: var(--accent-soft);
-    border: 1px solid #e5b8b3;
     border-radius: 4px;
     color: var(--text);
     font-family: var(--sans);
     font-size: 0.88rem;
     line-height: 1.4;
     box-shadow: 0 4px 18px rgba(42,33,26,0.15);
+    /* Tone-specific background + border supplied below. */
+    border: 1px solid var(--border);
+    background: var(--surface);
+}
+/* Default / neutral status — soft sage green, matching the workbench's
+   "Right side" indicator. */
+.toast.toast-info {
+    background: var(--selection-soft);
+    border-color: var(--selection);
+}
+/* Errors and validation failures — soft red, matching the masthead accent. */
+.toast.toast-error {
+    background: var(--accent-soft);
+    border-color: #e5b8b3;
 }
 .toast-text {
     flex: 1;

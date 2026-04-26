@@ -128,9 +128,10 @@ function closeStitchEditor() {
 }
 
 // Raise a toast tagged as editor-linked so closeStitchEditor can clear it.
-// Use for validation/error messages shown while the overlay is open.
-function showEditorToast(msg) {
-    showToast(msg);
+// Use for validation/error messages shown while the overlay is open. Tone
+// defaults to 'error' since these are almost always validation failures.
+function showEditorToast(msg, opts = {}) {
+    showToast(msg, { tone: opts.tone || 'error' });
     const stack = document.getElementById('toast-stack');
     const last = stack && stack.lastElementChild;
     if (last) last.classList.add('toast-editor');
@@ -258,9 +259,12 @@ function updateTextSliderRange() {
     if (!wrapper || !slider) return;
     const wr = wrapper.getBoundingClientRect();
     if (!wr.height) return;
-    // Aim for: at slider max, the em-box of a single glyph ≈ canvas height.
-    // 0.92 leaves a touch of margin so the box border + padding fit.
-    const newMax = Math.max(60, Math.floor(wr.height * 0.92));
+    // Aim for: at slider max, the cap-height of a single glyph ≈ canvas height
+    // (i.e. a capital "K" or "M" pretty much fills the drawing board). For a
+    // typical serif font, cap-height ≈ 0.7·font-size, so font-size ≈ 1.4·box.
+    // We use 1.3 as a slight conservative — leaves a pixel or two of margin
+    // for letters with descenders/diacritics so they don't fully clip.
+    const newMax = Math.max(60, Math.floor(wr.height * 1.3));
     slider.max = String(newMax);
     if (Number(slider.value) > newMax) {
         slider.value = String(newMax);
@@ -348,11 +352,11 @@ function onPointerDown(e) {
 
     if (tool === 'text') return;
 
-    // Pending curve: check for a vertex handle hit first. Dragging a handle
-    // edits just that vertex; clicking inside the bounding box moves the whole
-    // curve as before.
-    if (editorState.pending && editorState.pending.type === 'curve') {
-        const handle = hitTestCurveHandle(editorState.pending, p);
+    // Pending shape: check for a handle hit first. Lines, curves, rects, and
+    // ellipses all expose handles — dragging one tweaks just that vertex/edge,
+    // while clicking inside the bounding box moves the whole shape as before.
+    if (editorState.pending) {
+        const handle = hitTestPendingHandle(editorState.pending, p);
         if (handle) {
             editorState.draggingHandle = { handle, startPoint: p,
                 origShape: JSON.parse(JSON.stringify(editorState.pending)) };
@@ -394,19 +398,39 @@ function onPointerDown(e) {
 function onPointerMove(e) {
     const p = canvasToShape(e);
 
-    // Dragging a curve vertex handle — updates only that vertex
+    // Dragging a vertex / edge handle — updates only that handle on the
+    // pending shape. Endpoints (line/curve/control) move with delta from
+    // the original; rect/ellipse edges snap directly to the pointer.
     if (editorState.draggingHandle) {
         const h = editorState.draggingHandle;
         const dx = p.x - h.startPoint.x;
         const dy = p.y - h.startPoint.y;
         const orig = h.origShape;
         const pending = editorState.pending;
-        if (h.handle === 'x1') {
-            pending.x1 = clamp01(orig.x1 + dx); pending.y1 = clamp01(orig.y1 + dy);
-        } else if (h.handle === 'x2') {
-            pending.x2 = clamp01(orig.x2 + dx); pending.y2 = clamp01(orig.y2 + dy);
-        } else if (h.handle === 'cx') {
-            pending.cx = clamp01(orig.cx + dx); pending.cy = clamp01(orig.cy + dy);
+        if (pending.type === 'line' || pending.type === 'curve') {
+            if (h.handle === 'x1') {
+                pending.x1 = clamp01(orig.x1 + dx); pending.y1 = clamp01(orig.y1 + dy);
+            } else if (h.handle === 'x2') {
+                pending.x2 = clamp01(orig.x2 + dx); pending.y2 = clamp01(orig.y2 + dy);
+            } else if (h.handle === 'cx') {
+                pending.cx = clamp01(orig.cx + dx); pending.cy = clamp01(orig.cy + dy);
+            }
+        } else if (pending.type === 'rect') {
+            const e = rectEdges(orig);
+            if (h.handle === 'top')         e.top    = clamp01(p.y);
+            else if (h.handle === 'bottom') e.bottom = clamp01(p.y);
+            else if (h.handle === 'left')   e.left   = clamp01(p.x);
+            else if (h.handle === 'right')  e.right  = clamp01(p.x);
+            const r = rectFromEdges(e);
+            pending.x = r.x; pending.y = r.y; pending.w = r.w; pending.h = r.h;
+        } else if (pending.type === 'ellipse') {
+            const e = ellipseEdges(orig);
+            if (h.handle === 'top')         e.top    = clamp01(p.y);
+            else if (h.handle === 'bottom') e.bottom = clamp01(p.y);
+            else if (h.handle === 'left')   e.left   = clamp01(p.x);
+            else if (h.handle === 'right')  e.right  = clamp01(p.x);
+            const ell = ellipseFromEdges(e);
+            pending.cx = ell.cx; pending.cy = ell.cy; pending.rx = ell.rx; pending.ry = ell.ry;
         }
         redrawCanvas();
         renderPreview();
@@ -600,14 +624,74 @@ function redrawCanvas() {
         if (apex) drawVertexHandle(ctx, apex.x, apex.y, W, H, '#9b2f2a');
     }
 
-    // Pending curve: show draggable handles at both endpoints AND the control
-    // point so the user can tweak geometry without redrawing.
+    // Pending shape: draggable handles. Line/curve get endpoint handles
+    // (curve also gets a control-point handle in accent red); rect and
+    // ellipse get four edge-midpoint handles for independent stretching.
     const pending = editorState.pending;
-    if (pending && pending.type === 'curve') {
-        drawVertexHandle(ctx, pending.x1, pending.y1, W, H, '#2a211a'); // start
-        drawVertexHandle(ctx, pending.x2, pending.y2, W, H, '#2a211a'); // end
-        drawVertexHandle(ctx, pending.cx, pending.cy, W, H, '#9b2f2a'); // control
+    if (pending) {
+        for (const h of pendingHandlePositions(pending)) {
+            const color = h.kind === 'control' ? '#9b2f2a' : '#2a211a';
+            drawVertexHandle(ctx, h.x, h.y, W, H, color);
+        }
     }
+}
+
+// Positions of all draggable handles on a pending shape, in 0..100 coords.
+// Returns [{ key, x, y, kind }] where kind = 'endpoint' | 'control'.
+function pendingHandlePositions(shape) {
+    if (!shape) return [];
+    if (shape.type === 'line') {
+        return [
+            { key: 'x1', x: shape.x1, y: shape.y1, kind: 'endpoint' },
+            { key: 'x2', x: shape.x2, y: shape.y2, kind: 'endpoint' },
+        ];
+    }
+    if (shape.type === 'curve') {
+        return [
+            { key: 'x1', x: shape.x1, y: shape.y1, kind: 'endpoint' },
+            { key: 'x2', x: shape.x2, y: shape.y2, kind: 'endpoint' },
+            { key: 'cx', x: shape.cx, y: shape.cy, kind: 'control' },
+        ];
+    }
+    if (shape.type === 'rect') {
+        const e = rectEdges(shape);
+        const mx = (e.left + e.right) / 2;
+        const my = (e.top + e.bottom) / 2;
+        return [
+            { key: 'top',    x: mx,      y: e.top,    kind: 'endpoint' },
+            { key: 'right',  x: e.right, y: my,       kind: 'endpoint' },
+            { key: 'bottom', x: mx,      y: e.bottom, kind: 'endpoint' },
+            { key: 'left',   x: e.left,  y: my,       kind: 'endpoint' },
+        ];
+    }
+    if (shape.type === 'ellipse') {
+        const e = ellipseEdges(shape);
+        const mx = (e.left + e.right) / 2;
+        const my = (e.top + e.bottom) / 2;
+        return [
+            { key: 'top',    x: mx,      y: e.top,    kind: 'endpoint' },
+            { key: 'right',  x: e.right, y: my,       kind: 'endpoint' },
+            { key: 'bottom', x: mx,      y: e.bottom, kind: 'endpoint' },
+            { key: 'left',   x: e.left,  y: my,       kind: 'endpoint' },
+        ];
+    }
+    return [];
+}
+
+// Edge helpers for rect/ellipse. Each "edge" is the absolute coordinate of
+// the side; rectFromEdges / ellipseFromEdges normalise so dragging a side
+// past its opposite flips the shape rather than producing negative w/h.
+function rectEdges(s)   { return { top: s.y, bottom: s.y + s.h, left: s.x, right: s.x + s.w }; }
+function rectFromEdges(e) {
+    const x = Math.min(e.left, e.right);
+    const y = Math.min(e.top, e.bottom);
+    return { x, y, w: Math.abs(e.right - e.left), h: Math.abs(e.bottom - e.top) };
+}
+function ellipseEdges(s) { return { top: s.cy - s.ry, bottom: s.cy + s.ry, left: s.cx - s.rx, right: s.cx + s.rx }; }
+function ellipseFromEdges(e) {
+    const cx = (e.left + e.right) / 2;
+    const cy = (e.top + e.bottom) / 2;
+    return { cx, cy, rx: Math.abs(e.right - e.left) / 2, ry: Math.abs(e.bottom - e.top) / 2 };
 }
 
 // Small filled circle with a light ring — draws a handle at (px, py) given in
@@ -632,19 +716,18 @@ function drawVertexHandle(ctx, px, py, W, H, color) {
     ctx.restore();
 }
 
-// Hit-test a point against the pending curve's vertex handles.
-// Returns 'x1' | 'x2' | 'cx' | null. Tolerance is in 0..100 units.
-function hitTestCurveHandle(curve, p) {
-    if (!curve || curve.type !== 'curve') return null;
-    const tol = 6;
-    const d2 = (ax, ay) => (p.x - ax) ** 2 + (p.y - ay) ** 2;
-    const cands = [
-        { key: 'cx', d: d2(curve.cx, curve.cy) }, // control point priority
-        { key: 'x1', d: d2(curve.x1, curve.y1) },
-        { key: 'x2', d: d2(curve.x2, curve.y2) },
-    ];
-    cands.sort((a, b) => a.d - b.d);
-    return cands[0].d < tol * tol ? cands[0].key : null;
+// Hit-test a point against the pending shape's handles. Returns the handle
+// key (e.g. 'x1' / 'top' / 'cx') or null if the point isn't on a handle.
+// Tolerance is in 0..100 shape units.
+function hitTestPendingHandle(shape, p) {
+    const tol2 = 36; // 6^2
+    const handles = pendingHandlePositions(shape);
+    let best = null;
+    for (const h of handles) {
+        const d2 = (h.x - p.x) ** 2 + (h.y - p.y) ** 2;
+        if (d2 < tol2 && (!best || d2 < best.d2)) best = { key: h.key, d2 };
+    }
+    return best ? best.key : null;
 }
 
 function undoLastShape() {
@@ -687,6 +770,14 @@ function wireTextOverlay() {
     const content = document.getElementById('st-text-overlay-content');
     if (overlay.dataset.wired === '1') return;
     overlay.dataset.wired = '1';
+
+    // Belt-and-braces: any scroll on the editor body (e.g. browser
+    // auto-scroll-into-view from typing in the contenteditable at huge font
+    // sizes) gets reset immediately so the toolstrip stays fixed. CSS
+    // overflow:clip handles this in modern browsers; this listener covers
+    // older engines and any other source of stray scrolling.
+    const body = document.querySelector('.stitch-editor-body');
+    if (body) body.addEventListener('scroll', () => { body.scrollTop = 0; body.scrollLeft = 0; });
 
     // Dragging: click + drag the handle to move the overlay. Position is
     // stored as percentages of the canvas-wrapper so it scales with the modal.
@@ -739,15 +830,23 @@ function showTextOverlay(existing = null) {
         overlay.style.top  = '25%';
     }
     overlay.style.display = 'flex';
+    // Defensive: belt-and-braces against any stray scroll position the
+    // browser may have applied while the overlay was hidden. (overflow:clip
+    // prevents new scrolling, but doesn't undo state set when it was hidden
+    // and overflow was different.) Zero on every show.
+    overlay.scrollTop = 0;
+    overlay.scrollLeft = 0;
     editorState.textOverlayOpen = true;
     // Calibrate the slider's range to the current canvas size so "max" maps
     // to a glyph that fills the drawing board.
     updateTextSliderRange();
     applyOverlayFontSize();
     applyOverlayColour();
-    // Focus & place caret inside the contenteditable
+    // Focus & place caret inside the contenteditable. preventScroll keeps
+    // the modal from auto-scrolling the focused element into view, which
+    // can drag the editor toolstrip off the top if the content box is tall.
     setTimeout(() => {
-        content.focus();
+        content.focus({ preventScroll: true });
         // Position caret at end
         const range = document.createRange();
         range.selectNodeContents(content);
@@ -966,7 +1065,7 @@ async function deleteUserStitch(id) {
     try {
         await deleteUserStitchFromDB(id);
     } catch (err) {
-        showToast('Could not delete — ' + (err?.message || 'unknown error'));
+        showToast('Could not delete — ' + (err?.message || 'unknown error'), { tone: 'error' });
         return;
     }
     StitchRegistry.removeUserStitch(id);

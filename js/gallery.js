@@ -188,14 +188,14 @@ function handleGalleryFileLoad(e) {
                        : Array.isArray(data && data.userStitches) ? data.userStitches
                        : null;
             if (!list) {
-                showToast('Not a valid gallery file.');
+                showToast('Not a valid gallery file.', { tone: 'error' });
                 return;
             }
             await mergeUserStitches(list);
             if (GalleryUI.open) renderGalleryList();
         } catch (err) {
             console.error(err);
-            showToast('Could not read gallery file.');
+            showToast('Could not read gallery file.', { tone: 'error' });
         }
     };
     reader.readAsText(file);

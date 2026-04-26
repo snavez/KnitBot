@@ -35,6 +35,10 @@ function initStitchPalette() {
         ? getEffectiveActiveStitches()
         : null;
     for (const stitch of StitchRegistry.getAll()) {
+        // Erase isn't a stitch — it has its own dedicated button below the
+        // palette grid (see #btn-erase-stitch in index.html), styled to read
+        // as a tool/function rather than a stitch type.
+        if (stitch.id === 'stitch-erase') continue;
         if (effective && !effective.has(stitch.id)) continue;
         palette.appendChild(buildStitchTile(stitch, activeId === stitch.id));
     }
@@ -89,8 +93,8 @@ function buildStitchTile(stitch, isActive) {
 
         const checkboxLabel = document.createElement('label');
         checkboxLabel.className = 'no-st-checkbox';
-        checkboxLabel.title = 'Tick to place No Stitch on individual cells';
-        checkboxLabel.innerHTML = '<input type="checkbox" id="no-stitch-select-mode"> Select Cells';
+        checkboxLabel.title = 'Check "All BG" to fill all of the background (BG) cells';
+        checkboxLabel.innerHTML = '<input type="checkbox" id="no-stitch-select-mode"> All BG';
         tile.appendChild(checkboxLabel);
     } else {
         tile.appendChild(iconEl);
@@ -130,6 +134,9 @@ function bindStitchEvents() {
     const container = document.getElementById('grid-container');
 
     container.addEventListener('mousedown', (e) => {
+        // Erase toggles take priority over stitch placement — let app.js
+        // (bubble phase) handle the click as an erase action.
+        if (state.eraseStitch || state.eraseColour) return;
         if (state.activeTool !== 'stitch') return;
         const hit = GridView.cellAt(e.clientX, e.clientY);
         if (!hit) return;
@@ -153,6 +160,9 @@ function bindStitchEvents() {
     }, true);
 
     container.addEventListener('mousemove', (e) => {
+        // Erase toggles take priority — let the bubble-phase handler in
+        // app.js continue the drag-erase across cells.
+        if (state.eraseStitch || state.eraseColour) return;
         if (state.activeTool !== 'stitch') return;
         const hit = GridView.cellAt(e.clientX, e.clientY);
         if (!hit) return;
@@ -196,30 +206,21 @@ function bindStitchEvents() {
 }
 
 function selectStitch(stitch) {
-    // No-stitch: if checkbox is NOT ticked, fill all BG cells immediately
-    if (stitch === 'no-stitch' && !document.getElementById('no-stitch-select-mode').checked) {
-        for (let r = 0; r < state.rows; r++) {
-            if (!state.stitchGrid[r]) continue;
-            for (let c = 0; c < state.cols; c++) {
-                const hasColor = !!state.grid[r][c];
-                const hasStitch = !!state.stitchGrid[r][c];
-                if (!hasColor && !hasStitch) {
-                    state.stitchGrid[r][c] = 'no-stitch';
-                }
-            }
-        }
-        renderGrid();
-        pushHistory();
-        showToast('Empty cells filled with No Stitch');
-        return;
-    }
+    // No-stitch tile: just becomes the active stitch like any other.
+    // The "All BG" checkbox modifies the *click-on-cell* behaviour
+    // (see applySimpleStitch) — selecting the tile no longer fires a
+    // flood-fill on its own.
 
     state.activeStitch = stitch;
     state.activeTool = 'stitch';
+    // Picking a stitch tile means "I want to place this stitch" — turn off
+    // the erase toggles so the next click actually places, not erases.
+    state.eraseStitch = false;
+    state.eraseColour = false;
     document.querySelectorAll('.stitch-tile').forEach(t => {
         t.classList.toggle('active', t.dataset.stitch === stitch);
     });
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    if (typeof updateToolButtons === 'function') updateToolButtons();
 }
 
 function isCrossStitch(stitch) {
@@ -245,6 +246,20 @@ function applySimpleStitch(r, c) {
             }
         } else {
             state.stitchGrid[r][c] = null;
+        }
+    } else if (state.activeStitch === 'no-stitch'
+               && document.getElementById('no-stitch-select-mode')?.checked) {
+        // No St + "All BG" checkbox: a single click floods every empty cell
+        // (no colour, no stitch) on the chart with No Stitch.
+        for (let rr = 0; rr < state.rows; rr++) {
+            if (!state.stitchGrid[rr]) continue;
+            for (let cc = 0; cc < state.cols; cc++) {
+                const hasColor = !!state.grid[rr][cc];
+                const hasStitch = !!state.stitchGrid[rr][cc];
+                if (!hasColor && !hasStitch) {
+                    state.stitchGrid[rr][cc] = 'no-stitch';
+                }
+            }
         }
     } else if (StitchRegistry.isSimple(state.activeStitch)) {
         // Registry ids are what we store in the grid verbatim.
@@ -556,32 +571,10 @@ function renderStitchOverlay() {
         }
     }
 
-    // Draw row balance indicators
-    drawRowBalanceIndicators(ctx, stepX, stepY, cellW, cellH);
+    // (Row YO-count indicator removed — it overlapped the right-side row
+    // numbers. May return as part of a richer per-row stitch counter.)
 }
 
-function drawRowBalanceIndicators(ctx, stepX, stepY, cellW, cellH) {
-    for (let r = 0; r < state.rows; r++) {
-        if (!state.stitchGrid[r]) continue;
-
-        let holes = 0;
-        for (let c = 0; c < state.cols; c++) {
-            if (state.stitchGrid[r][c] === 'hole') holes++;
-        }
-
-        if (holes === 0) continue;
-
-        // Show hole count as a small indicator
-        const y = r * stepY + cellH / 2;
-        const x = state.cols * stepX + 4;
-
-        ctx.font = `bold ${Math.min(12, cellH * 0.5)}px sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = STITCH_COLORS.accent;
-        ctx.fillText(`${holes}\u25CB`, x, y); // e.g. "2○"
-    }
-}
 
 // (per-cell overlay draw funcs for simple stitches live in js/stitches.js)
 
