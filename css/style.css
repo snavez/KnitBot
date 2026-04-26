@@ -107,6 +107,29 @@ body {
     color: var(--text-muted);
 }
 
+/* Sits in the masthead alongside Saved/Unsaved. Reads as a quiet chrome
+   action — small mono caps, hairline border, walnut on hover — so it
+   doesn't compete with the workbench buttons in the panels below. */
+.masthead-install {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    align-self: center;
+}
+.masthead-install:hover {
+    color: var(--text);
+    border-color: var(--text-soft);
+    background: var(--surface-hover);
+}
+
 /* === Status Bar (thin strip at bottom of workbench) === */
 .status-bar {
     flex-shrink: 0;
