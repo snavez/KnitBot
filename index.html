@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=90">
+    <link rel="stylesheet" href="css/style.css?v=93">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2a211a">
     <!-- Browser tab favicon. PNG first because the GitHub-Pages-served SVG
@@ -26,11 +26,12 @@
         <div class="masthead-meta">
             <input type="text" id="pattern-name" placeholder="Pattern name…" title="Name your pattern" class="pattern-name-input">
             <span class="masthead-saved" id="masthead-saved">Unsaved</span>
-            <!-- Hidden until the browser tells us a PWA install is available
-                 (beforeinstallprompt event). Stays hidden in browsers that
-                 don't support PWA install (Firefox desktop, etc.) and after
-                 the app is already installed. -->
-            <button id="masthead-install" class="masthead-install" title="Install Knitwittage as a standalone app for offline use" style="display:none;">Install locally</button>
+            <!-- Always visible (except when running as the installed PWA).
+                 If the browser fires beforeinstallprompt, clicking triggers
+                 the native install dialog. Otherwise we open a small modal
+                 with browser-specific install instructions, so the user
+                 always has a path forward. -->
+            <button id="masthead-install" class="masthead-install" title="Install Knitwittage as a standalone app for offline use">Install locally</button>
         </div>
     </header>
 
@@ -560,19 +561,19 @@
 
     <input type="file" id="file-input" accept=".json,.knit.json" style="display:none;">
 
-    <script src="js/grid-view.js?v=90"></script>
-    <script src="js/app.js?v=90"></script>
-    <script src="js/preview.js?v=90"></script>
-    <script src="js/print.js?v=90"></script>
-    <script src="js/instructions.js?v=90"></script>
-    <script src="js/random.js?v=90"></script>
-    <script src="js/image.js?v=90"></script>
-    <script src="js/stitches.js?v=90"></script>
-    <script src="js/stitch-editor.js?v=90"></script>
-    <script src="js/gallery.js?v=90"></script>
-    <script src="js/cables.js?v=90"></script>
-    <script src="js/knit-mode.js?v=90"></script>
-    <script src="js/tabs.js?v=90"></script>
+    <script src="js/grid-view.js?v=93"></script>
+    <script src="js/app.js?v=93"></script>
+    <script src="js/preview.js?v=93"></script>
+    <script src="js/print.js?v=93"></script>
+    <script src="js/instructions.js?v=93"></script>
+    <script src="js/random.js?v=93"></script>
+    <script src="js/image.js?v=93"></script>
+    <script src="js/stitches.js?v=93"></script>
+    <script src="js/stitch-editor.js?v=93"></script>
+    <script src="js/gallery.js?v=93"></script>
+    <script src="js/cables.js?v=93"></script>
+    <script src="js/knit-mode.js?v=93"></script>
+    <script src="js/tabs.js?v=93"></script>
     <script>
     // Register service worker for offline PWA support
     if ('serviceWorker' in navigator) {
@@ -590,29 +591,71 @@
     }
 
     // === Install button (PWA) ===
-    // The browser fires `beforeinstallprompt` only when the page meets PWA
-    // install criteria (HTTPS, manifest, service worker, etc.) and the app
-    // isn't already installed. We stash the event and show our own button —
-    // hidden everywhere else (Firefox desktop, Safari, post-install).
+    // The button is always visible (except when running as the installed
+    // PWA). beforeinstallprompt is unreliable — it doesn't fire in Firefox
+    // or Safari, can be skipped if the app is already installed, and even
+    // in Chrome/Edge sometimes needs user engagement first. So:
+    //   - Stash the event if we get one → click triggers the native dialog.
+    //   - Otherwise → click shows a styled modal with browser-specific
+    //     instructions (which is also useful for Firefox/Safari users).
     (() => {
         const btn = document.getElementById('masthead-install');
         if (!btn) return;
+
+        // Already installed and currently running standalone — no point
+        // showing the button.
+        if (matchMedia('(display-mode: standalone)').matches) {
+            btn.style.display = 'none';
+            return;
+        }
+
         let deferred = null;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferred = e;
-            btn.style.display = '';
-        });
-        btn.addEventListener('click', async () => {
-            if (!deferred) return;
-            deferred.prompt();
-            try { await deferred.userChoice; } catch (_) {}
-            deferred = null;
-            btn.style.display = 'none';
         });
         window.addEventListener('appinstalled', () => {
             deferred = null;
             btn.style.display = 'none';
+        });
+
+        btn.addEventListener('click', async () => {
+            if (deferred) {
+                deferred.prompt();
+                try { await deferred.userChoice; } catch (_) {}
+                deferred = null;
+                return;
+            }
+            // No native prompt available — explain how to install on whatever
+            // browser the user is in. confirmDialog comes from app.js.
+            if (typeof confirmDialog !== 'function') return;
+            const ua = navigator.userAgent;
+            const isEdge    = /\bEdg\//.test(ua);
+            const isChrome  = /\bChrome\//.test(ua) && !isEdge;
+            const isSafari  = /\bSafari\//.test(ua) && !/\bChrome\//.test(ua);
+            const isFirefox = /\bFirefox\//.test(ua);
+            const isMobile  = /\b(Android|iPhone|iPad)/.test(ua);
+            let msg;
+            if (isMobile && isSafari) {
+                msg = 'On iPhone or iPad: tap the Share button in Safari, then "Add to Home Screen". Knitwittage will install as its own app icon.';
+            } else if (isMobile) {
+                msg = 'On Android: open the browser menu (⋮) and choose "Install app" or "Add to Home Screen".';
+            } else if (isEdge) {
+                msg = 'In Edge, look for the install icon (computer with a down-arrow) at the right end of the address bar — clicking it installs Knitwittage as a desktop app. Or use the … menu → "Apps" → "Install this site as an app".';
+            } else if (isChrome) {
+                msg = 'In Chrome, look for the install icon (computer with a down-arrow) at the right end of the address bar — clicking it installs Knitwittage as a desktop app. Or use the ⋮ menu → "Install Knitwittage…". \n\nIf the icon is missing, you may already have Knitwittage installed (or installed it previously). Visit chrome://apps to check.';
+            } else if (isSafari) {
+                msg = 'In Safari on macOS Sonoma or later: File → Add to Dock. (Older Safari versions don\'t support installable web apps.)';
+            } else if (isFirefox) {
+                msg = 'Firefox on desktop doesn\'t currently support installable web apps. To install Knitwittage as a standalone app, open this page in Chrome or Edge.';
+            } else {
+                msg = 'Look for an install icon in your browser\'s address bar, or open the browser menu and choose "Install app" / "Add to Home Screen".';
+            }
+            await confirmDialog({
+                title: 'Install Knitwittage',
+                message: msg,
+                buttons: [{ id: 'ok', label: 'OK', kind: 'primary' }],
+            });
         });
     })();
     </script>

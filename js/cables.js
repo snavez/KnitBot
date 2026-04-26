@@ -93,7 +93,7 @@ function buildStitchTile(stitch, isActive) {
 
         const checkboxLabel = document.createElement('label');
         checkboxLabel.className = 'no-st-checkbox';
-        checkboxLabel.title = 'Check "All BG" to fill all of the background (BG) cells';
+        checkboxLabel.title = 'Tick select to fill all empty background (BG) cells in the design grid.';
         checkboxLabel.innerHTML = '<input type="checkbox" id="no-stitch-select-mode"> All BG';
         tile.appendChild(checkboxLabel);
     } else {
