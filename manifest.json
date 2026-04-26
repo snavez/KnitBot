@@ -4,10 +4,16 @@
   "description": "Design knitting patterns with colourwork, cables, lace, and texture. Generate instructions and print patterns.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#4fc3f7",
+  "background_color": "#fbf7ec",
+  "theme_color": "#2a211a",
   "orientation": "any",
   "icons": [
+    {
+      "src": "knitwittage_icon.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "icon.svg",
       "sizes": "any",

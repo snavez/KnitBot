@@ -61,7 +61,13 @@ body {
 
 .masthead-mark {
     flex-shrink: 0;
-    transform: translateY(2px);
+    display: block;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    /* The icon already has rounded corners baked in, but a tiny radius here
+       smooths the few stray edge pixels that PNG decode/scale can leave. */
+    border-radius: 4px;
 }
 
 .masthead h1 {

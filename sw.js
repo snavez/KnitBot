@@ -1,5 +1,5 @@
 // Knitwittage Service Worker — enables offline use and auto-updates
-const CACHE_VERSION = 'knitwittage-v66';
+const CACHE_VERSION = 'knitwittage-v68';
 const ASSETS = [
   './',
   './index.html',
@@ -14,8 +14,10 @@ const ASSETS = [
   './js/stitches.js',
   './js/stitch-editor.js',
   './js/cables.js',
+  './js/gallery.js',
   './js/knit-mode.js',
   './js/tabs.js',
+  './knitwittage_icon.png',
   './icon.svg',
   './manifest.json',
 ];

@@ -258,13 +258,15 @@ function renderPatternPreview(pattern, rows, cols) {
     canvas.width = w;
     canvas.height = h;
 
-    ctx.fillStyle = '#1a1a2e';
+    // Empty-cell fill tracks the warm paper-cream of the rest of the app
+    // (was a stale dark navy from the old colour scheme).
+    ctx.fillStyle = '#fbf7ec';
     ctx.fillRect(0, 0, w, h);
 
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const color = pattern[r][c];
-            ctx.fillStyle = color || '#1a1a2e';
+            ctx.fillStyle = color || '#fbf7ec';
             ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
         }
     }

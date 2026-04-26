@@ -1,15 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="64" fill="#1a1a2e"/>
-  <g stroke="#4fc3f7" stroke-width="28" stroke-linecap="round" fill="none">
-    <!-- Knit V stitches -->
-    <path d="M 100 140 L 160 260 L 220 140"/>
-    <path d="M 220 140 L 280 260 L 340 140"/>
-    <path d="M 100 280 L 160 400 L 220 280"/>
-    <path d="M 220 280 L 280 400 L 340 280"/>
-    <!-- Cable crossing -->
-    <path d="M 370 140 Q 370 260 440 280" stroke="#7dd3fc"/>
-    <path d="M 440 140 Q 440 260 370 280" stroke="#1a6b8a"/>
-    <!-- Hole -->
-    <circle cx="405" cy="370" r="35" stroke="#4fc3f7" stroke-width="20"/>
+  <!-- Paper-cream rounded square, matching the app's --bg / --surface tones -->
+  <rect width="512" height="512" rx="64" fill="#fbf7ec"/>
+  <!-- Hairline border so the cream icon still has a visible edge against
+       light OS chrome (Windows light-mode taskbar, etc.). -->
+  <rect x="3" y="3" width="506" height="506" rx="61" fill="none" stroke="#2a211a" stroke-opacity="0.12" stroke-width="6"/>
+  <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Four knit V stitches in dark walnut (--text) -->
+    <g stroke="#2a211a" stroke-width="28">
+      <path d="M 100 140 L 160 260 L 220 140"/>
+      <path d="M 220 140 L 280 260 L 340 140"/>
+      <path d="M 100 280 L 160 400 L 220 280"/>
+      <path d="M 220 280 L 280 400 L 340 280"/>
+    </g>
+    <!-- Cable crossing — front strand in madder red (--accent), back strand
+         in a softer warm brown so the cross reads clearly. -->
+    <path d="M 370 140 Q 370 260 440 280" stroke="#7a5a3a" stroke-width="28"/>
+    <path d="M 440 140 Q 440 260 370 280" stroke="#9b2f2a" stroke-width="28"/>
+    <!-- Yarn-over hole — sage green ring (--selection). -->
+    <circle cx="405" cy="370" r="35" stroke="#6f8a5f" stroke-width="20"/>
   </g>
 </svg>
